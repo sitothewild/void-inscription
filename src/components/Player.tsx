@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useKeyboardControls, useGLTF, Clone } from "@react-three/drei";
 import {
@@ -8,7 +8,7 @@ import {
   type RapierCollider,
   type RapierRigidBody,
 } from "@react-three/rapier";
-import { Group, Plane, Raycaster, Vector2, Vector3 } from "three";
+import { Group, Mesh, Plane, Raycaster, Vector2, Vector3 } from "three";
 import { CharacterModel, type CharState } from "./CharacterModel";
 import { fireArrow } from "./Projectiles";
 import { mobileAxis, onEdge, playerPos, playerState, runState } from "@/game/inputStore";
@@ -26,6 +26,13 @@ type Props = {
 const WALK_SPEED = 4.5;
 const RUN_SPEED = 9;
 const JUMP_IMPULSE = 12;
+
+// Bow tuning.
+const QUICK_SHOT = { speed: 18, maxDistance: 3.5, power: 0.25 };
+const CHARGE_MIN = { speed: 20, maxDistance: 6 };
+const CHARGE_MAX = { speed: 55, maxDistance: 38 };
+/** Time (ms) to reach full charge. */
+const FULL_CHARGE_MS = 1200;
 
 export function Player({ spawn, camera, onRef }: Props) {
   const bodyRef = useRef<RapierRigidBody | null>(null);
@@ -50,6 +57,9 @@ export function Player({ spawn, camera, onRef }: Props) {
   const movingRef = useRef(false);
   const speedRef = useRef(0);
   const stateRef = useRef<CharState>("idle");
+  const chargeStart = useRef<number | null>(null);
+  const chargeRef = useRef(0);
+  const beamRef = useRef<Mesh>(null);
 
   useEffect(() => {
     const controller = world.createCharacterController(0.05);
@@ -91,18 +101,58 @@ export function Player({ spawn, camera, onRef }: Props) {
     const f = facing.current;
     const dir: [number, number, number] = [Math.sin(f), 0.18, Math.cos(f)];
     const pos: [number, number, number] = [t.x + dir[0] * 0.8, t.y + 0.4, t.z + dir[2] * 0.8];
-    fireArrow({ pos, dir, speed: 22 });
+    fireArrow({ pos, dir, ...QUICK_SHOT });
   };
 
-  // Shoot on left mouse button
+  /** Release the currently-held charge shot (0..1). */
+  const releaseCharge = () => {
+    const start = chargeStart.current;
+    chargeStart.current = null;
+    if (start === null) return;
+    const charge = Math.min(1, (performance.now() - start) / FULL_CHARGE_MS);
+    chargeRef.current = 0;
+    // Below ~10% charge feels like an accidental tap — treat as quick shot.
+    if (charge < 0.1) {
+      shoot();
+      return;
+    }
+    const b = bodyRef.current;
+    if (!b) return;
+    const t = b.translation();
+    const f = facing.current;
+    // Lower elevation than the quick shot — straighter, flatter trajectory.
+    const dir: [number, number, number] = [Math.sin(f), 0.04 + 0.06 * (1 - charge), Math.cos(f)];
+    const pos: [number, number, number] = [t.x + dir[0] * 0.8, t.y + 0.5, t.z + dir[2] * 0.8];
+    const speed = CHARGE_MIN.speed + (CHARGE_MAX.speed - CHARGE_MIN.speed) * charge;
+    const maxDistance = CHARGE_MIN.maxDistance + (CHARGE_MAX.maxDistance - CHARGE_MIN.maxDistance) * charge;
+    lastShot.current = performance.now();
+    fireArrow({ pos, dir, speed, maxDistance, power: charge });
+  };
+
+  // Mouse buttons: LMB = quick shot, RMB = hold-to-charge power shot.
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (e.button !== 0) return;
       // Avoid firing when interacting with UI buttons
       if ((e.target as HTMLElement)?.closest("button")) return;
-      shoot();
+      if (e.button === 0) {
+        shoot();
+      } else if (e.button === 2) {
+        e.preventDefault();
+        chargeStart.current = performance.now();
+      }
+    };
+    const onUp = (e: MouseEvent) => {
+      if (e.button !== 2) return;
+      releaseCharge();
+    };
+    // Suppress browser context menu so RMB can drive the bow.
+    const onCtx = (e: MouseEvent) => {
+      if ((e.target as HTMLElement)?.closest("button")) return;
+      e.preventDefault();
     };
     window.addEventListener("mousedown", onDown);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("contextmenu", onCtx);
     const offAttack = onEdge("attack", shoot);
     const offJump = onEdge("jump", () => {
       const b = bodyRef.current;
@@ -111,6 +161,8 @@ export function Player({ spawn, camera, onRef }: Props) {
     });
     return () => {
       window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("contextmenu", onCtx);
       offAttack();
       offJump();
     };
@@ -236,6 +288,32 @@ export function Player({ spawn, camera, onRef }: Props) {
     }
     cam.position.lerp(targetCam.current, 0.12);
     cam.lookAt(targetLook.current);
+
+    // Update charge beam (red ray that grows from the player while RMB held).
+    if (chargeStart.current !== null) {
+      const c = Math.min(1, (performance.now() - chargeStart.current) / FULL_CHARGE_MS);
+      chargeRef.current = c;
+    } else {
+      chargeRef.current *= 0.5; // quick fade-out when released
+      if (chargeRef.current < 0.01) chargeRef.current = 0;
+    }
+    const beam = beamRef.current;
+    if (beam) {
+      const c = chargeRef.current;
+      const visible = c > 0.001;
+      beam.visible = visible;
+      if (visible) {
+        const length =
+          CHARGE_MIN.maxDistance + (CHARGE_MAX.maxDistance - CHARGE_MIN.maxDistance) * c;
+        const thickness = 0.04 + c * 0.16;
+        beam.scale.set(thickness, length, thickness);
+        beam.position.set(0, 1.3, length / 2);
+        const mat = beam.material as { opacity?: number; color?: { setRGB: (r: number, g: number, b: number) => void } };
+        if (mat.opacity !== undefined) mat.opacity = 0.35 + c * 0.55;
+        // Shift toward bright white-hot at full charge.
+        mat.color?.setRGB(1, 0.18 + c * 0.25, 0.12 + c * 0.18);
+      }
+    }
   });
 
   return (
@@ -262,6 +340,17 @@ export function Player({ spawn, camera, onRef }: Props) {
         <group position={[0.45, 1.1, 0.1]} rotation={[0, Math.PI / 2, Math.PI / 2]}>
           <Clone object={bow.scene} scale={0.5} castShadow />
         </group>
+        {/* Charge beam — origin at chest, extends along +Z (facing direction). */}
+        <mesh ref={beamRef} visible={false} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[1, 1, 1, 12, 1, true]} />
+          <meshBasicMaterial
+            color={"#ff2a14"}
+            transparent
+            opacity={0.7}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
       </group>
     </RigidBody>
   );
