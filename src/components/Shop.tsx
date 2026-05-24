@@ -43,10 +43,15 @@ export function Shop() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && openVendor) setOpenVendor(null);
+      if ((e.key === "e" || e.key === "E") && !e.repeat) {
+        // Toggle vendor when E pressed and a vendor is in range.
+        if (openVendor) setOpenVendor(null);
+        else if (nearby) setOpenVendor(nearby.label);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openVendor]);
+  }, [openVendor, nearby]);
 
   // Floating "Press E" prompt when near a vendor.
   if (!openVendor) {
