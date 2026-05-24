@@ -79,8 +79,8 @@ export function Level1({ spawn, onEnterPortal }: Props) {
       <SkyEnvironment fogNear={120} fogFar={520} />
 
       <Terrain data={terrain} />
-      <Resources data={terrain} densityMultiplier={6} />
-      <Grass data={terrain} count={28000} allowDesert />
+      <Resources data={terrain} densityMultiplier={40} />
+      <Grass data={terrain} count={140000} allowDesert />
       <Village data={terrain} />
       <Suspense fallback={null}>
         <Vendors data={terrain} />
