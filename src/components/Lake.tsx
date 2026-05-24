@@ -23,6 +23,7 @@ export function Lake({ position, radius }: Props) {
           uShallow: { value: new Color("#2c8aa6") },
           uFoam: { value: new Color("#e8f4ff") },
           uR: { value: radius },
+          uCenter: { value: [position[0], position[2]] as [number, number] },
         },
         vertexShader: /* glsl */ `
           uniform float uTime;
@@ -51,11 +52,12 @@ export function Lake({ position, radius }: Props) {
           uniform vec3 uFoam;
           uniform float uR;
           uniform float uTime;
+          uniform vec2 uCenter;
           varying vec3 vWorld;
           varying float vWave;
           varying vec3 vNormal;
           void main() {
-            float d = length(vWorld.xz - vec2(${0}, ${0}));
+            float d = length(vWorld.xz - uCenter);
             // Smooth edge fade so the lake blends into its basin.
             float edge = smoothstep(uR, uR - 8.0, d);
             vec3 base = mix(uDeep, uShallow, 0.35 + vWave * 0.6);
