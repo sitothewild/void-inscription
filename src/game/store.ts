@@ -435,6 +435,7 @@ export const useGame = create<GameState>((set, get) => ({
       if (selfId && snap.players[selfId]) {
         heroHp = snap.players[selfId].hp;
       }
+      const plateaus = snap.seed !== s.seed ? generatePlateaus(snap.seed) : s.plateaus;
       return {
         phase: snap.phase,
         phaseTime: snap.phaseTime,
@@ -446,6 +447,7 @@ export const useGame = create<GameState>((set, get) => ({
         inventory: snap.inventory,
         gates: snap.gates,
         seed: snap.seed,
+        plateaus,
         players,
         heroHp,
       };
