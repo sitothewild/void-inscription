@@ -1,19 +1,24 @@
 import { OrthographicCamera } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
-import type { OrthographicCamera as OC } from "three";
+import { Vector3, type OrthographicCamera as OC } from "three";
 import { useGame } from "@/game/store";
 import { heightAt } from "@/game/terrain";
 
 export function IsoCamera() {
   const cam = useRef<OC>(null);
+  const target = useRef(new Vector3());
+  const look = useRef(new Vector3());
 
-  useFrame(() => {
+  useFrame((_, dt) => {
     if (!cam.current) return;
     const { heroX, heroZ, plateaus } = useGame.getState();
     const hy = heightAt(heroX, heroZ, plateaus);
-    cam.current.position.set(heroX + 20, 25 + hy, heroZ + 20);
-    cam.current.lookAt(heroX, hy, heroZ);
+    target.current.set(heroX + 20, 25 + hy, heroZ + 20);
+    look.current.set(heroX, hy, heroZ);
+    const k = 1 - Math.exp(-dt * 6);
+    cam.current.position.lerp(target.current, k);
+    cam.current.lookAt(look.current);
   });
 
   return (
