@@ -10,6 +10,7 @@ import {
 import { Group, Vector3 } from "three";
 import { CharacterModel } from "./CharacterModel";
 import { fireArrow } from "./Projectiles";
+import { mobileAxis, onEdge } from "@/game/inputStore";
 
 export type Controls = "forward" | "back" | "left" | "right" | "jump";
 
@@ -35,27 +36,43 @@ export function Player({ spawn, camera, onRef }: Props) {
   const lastShot = useRef(0);
   const bow = useGLTF("/models/items/bow.glb");
 
+  const shoot = () => {
+    const now = performance.now();
+    if (now - lastShot.current < 350) return;
+    lastShot.current = now;
+    const b = bodyRef.current;
+    if (!b) return;
+    const t = b.translation();
+    const f = facing.current;
+    const dir: [number, number, number] = [Math.sin(f), 0.18, Math.cos(f)];
+    const pos: [number, number, number] = [
+      t.x + dir[0] * 0.8,
+      t.y + 0.4,
+      t.z + dir[2] * 0.8,
+    ];
+    fireArrow({ pos, dir, speed: 22 });
+  };
+
   // Shoot on left mouse button
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
-      const now = performance.now();
-      if (now - lastShot.current < 350) return;
-      lastShot.current = now;
-      const b = bodyRef.current;
-      if (!b) return;
-      const t = b.translation();
-      const f = facing.current;
-      const dir: [number, number, number] = [Math.sin(f), 0.18, Math.cos(f)];
-      const pos: [number, number, number] = [
-        t.x + dir[0] * 0.8,
-        t.y + 0.4,
-        t.z + dir[2] * 0.8,
-      ];
-      fireArrow({ pos, dir, speed: 22 });
+      // Avoid firing when interacting with UI buttons
+      if ((e.target as HTMLElement)?.closest("button")) return;
+      shoot();
     };
     window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
+    const offAttack = onEdge("attack", shoot);
+    const offJump = onEdge("jump", () => {
+      const b = bodyRef.current;
+      if (!b) return;
+      b.applyImpulse({ x: 0, y: JUMP_IMPULSE, z: 0 }, true);
+    });
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      offAttack();
+      offJump();
+    };
   }, []);
 
   // Teleport on spawn change
@@ -83,10 +100,14 @@ export function Player({ spawn, camera, onRef }: Props) {
     if (back) dz += 1;
     if (left) dx -= 1;
     if (right) dx += 1;
+    // Add mobile joystick (y is inverted for "up = forward")
+    dx += mobileAxis.x;
+    dz += mobileAxis.y;
     const len = Math.hypot(dx, dz);
     if (len > 0) {
-      dx = (dx / len) * SPEED;
-      dz = (dz / len) * SPEED;
+      const mag = Math.min(1, len);
+      dx = (dx / len) * SPEED * mag;
+      dz = (dz / len) * SPEED * mag;
     }
 
     // Grounded check: cast ray downward

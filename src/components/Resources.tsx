@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Clone, useGLTF } from "@react-three/drei";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
+import { useResources, world, type Resource, type ResourceKind } from "@/game/world";
 
 function mulberry32(seed: number) {
   let a = seed >>> 0;
@@ -13,71 +14,98 @@ function mulberry32(seed: number) {
   };
 }
 
-type Placement = { pos: [number, number, number]; rotY: number; scale: number };
+type Bucket = {
+  kind: ResourceKind;
+  url: string;
+  seed: number;
+  count: number;
+  hMin: number;
+  hMax: number;
+  scale: [number, number];
+  baseScale?: number;
+};
 
-function scatter(
-  seed: number,
-  count: number,
-  data: TerrainData,
-  hMin: number,
-  hMax: number,
-  scaleRange: [number, number] = [0.8, 1.4],
-  villageRadius = 11,
-): Placement[] {
-  const rng = mulberry32(seed);
-  const half = data.worldSize / 2;
-  const out: Placement[] = [];
-  let attempts = 0;
-  while (out.length < count && attempts < count * 25) {
-    attempts++;
-    const x = (rng() * 2 - 1) * half * 0.92;
-    const z = (rng() * 2 - 1) * half * 0.92;
-    if (Math.hypot(x, z) < villageRadius) continue;
-    const h = data.sampleAt(x, z);
-    if (h < hMin || h > hMax) continue;
-    out.push({
-      pos: [x, h * data.maxHeight, z],
-      rotY: rng() * Math.PI * 2,
-      scale: scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0]),
-    });
-  }
-  return out;
-}
+const BUCKETS: Bucket[] = [
+  { kind: "pine", url: "/models/nature/pine.glb", seed: 2001, count: 50, hMin: 0.4, hMax: 0.7, scale: [0.8, 1.4] },
+  { kind: "tree", url: "/models/nature/tree.glb", seed: 2101, count: 40, hMin: 0.3, hMax: 0.55, scale: [0.8, 1.4] },
+  { kind: "rock", url: "/models/nature/rock.glb", seed: 3001, count: 35, hMin: 0.5, hMax: 0.9, scale: [0.6, 1.4] },
+  { kind: "bush", url: "/models/nature/bush.glb", seed: 3501, count: 60, hMin: 0.25, hMax: 0.5, scale: [0.6, 1.1] },
+  { kind: "mushroom", url: "/models/nature/mushroom.glb", seed: 4001, count: 80, hMin: 0.2, hMax: 0.45, scale: [0.5, 0.9], baseScale: 0.8 },
+];
 
-function CloneField({ url, items, baseScale = 1 }: { url: string; items: Placement[]; baseScale?: number }) {
-  const { scene } = useGLTF(url);
+export function Resources({ data }: { data: TerrainData }) {
+  const items = useMemo(() => {
+    const out: Omit<Resource, "id">[] = [];
+    const half = data.worldSize / 2;
+    const villageRadius = 11;
+    for (const b of BUCKETS) {
+      const rng = mulberry32(b.seed);
+      let attempts = 0;
+      let placed = 0;
+      while (placed < b.count && attempts < b.count * 25) {
+        attempts++;
+        const x = (rng() * 2 - 1) * half * 0.92;
+        const z = (rng() * 2 - 1) * half * 0.92;
+        if (Math.hypot(x, z) < villageRadius) continue;
+        const h = data.sampleAt(x, z);
+        if (h < b.hMin || h > b.hMax) continue;
+        out.push({
+          kind: b.kind,
+          url: b.url,
+          pos: [x, h * data.maxHeight, z],
+          rotY: rng() * Math.PI * 2,
+          scale: (b.baseScale ?? 1) * (b.scale[0] + rng() * (b.scale[1] - b.scale[0])),
+        });
+        placed++;
+      }
+    }
+    return out;
+  }, [data]);
+
+  useEffect(() => {
+    world.setResources(items);
+    world.resetCounts();
+    return () => world.clear();
+  }, [items]);
+
+  const live = useResources();
+
+  // Group live resources by url for shared Clone source
+  const byUrl = useMemo(() => {
+    const m = new Map<string, Resource[]>();
+    for (const r of live) {
+      const arr = m.get(r.url) ?? [];
+      arr.push(r);
+      m.set(r.url, arr);
+    }
+    return m;
+  }, [live]);
+
   return (
     <group>
-      {items.map((it, i) => (
-        <Clone
-          key={i}
-          object={scene}
-          position={it.pos}
-          rotation={[0, it.rotY, 0]}
-          scale={it.scale * baseScale}
-          castShadow
-          receiveShadow
-        />
+      {[...byUrl.entries()].map(([url, list]) => (
+        <ResourceField key={url} url={url} items={list} />
       ))}
     </group>
   );
 }
 
-export function Resources({ data }: { data: TerrainData }) {
-  const pines = useMemo(() => scatter(2001, 50, data, 0.4, 0.7), [data]);
-  const trees = useMemo(() => scatter(2101, 40, data, 0.3, 0.55), [data]);
-  const rocks = useMemo(() => scatter(3001, 35, data, 0.5, 0.9, [0.6, 1.4]), [data]);
-  const bushes = useMemo(() => scatter(3501, 60, data, 0.25, 0.5, [0.6, 1.1]), [data]);
-  const mushrooms = useMemo(() => scatter(4001, 80, data, 0.2, 0.45, [0.5, 0.9]), [data]);
-
+function ResourceField({ url, items }: { url: string; items: Resource[] }) {
+  const { scene } = useGLTF(url);
   return (
-    <group>
-      <CloneField url="/models/nature/pine.glb" items={pines} />
-      <CloneField url="/models/nature/tree.glb" items={trees} />
-      <CloneField url="/models/nature/rock.glb" items={rocks} />
-      <CloneField url="/models/nature/bush.glb" items={bushes} />
-      <CloneField url="/models/nature/mushroom.glb" items={mushrooms} baseScale={0.8} />
-    </group>
+    <>
+      {items.map((it) => (
+        <Clone
+          key={it.id}
+          object={scene}
+          position={it.pos}
+          rotation={[0, it.rotY, 0]}
+          scale={it.scale}
+          castShadow
+          receiveShadow
+        />
+      ))}
+    </>
   );
 }
 
