@@ -51,41 +51,70 @@ export function useProceduralTerrain(
     const half = worldSize / 2;
     const islandRadius = half * 0.95;
 
+    const smoothstep = (t: number) => {
+      const c = Math.max(0, Math.min(1, t));
+      return c * c * (3 - 2 * c);
+    };
+    const PAD_H = 0.32; // plains-level village pad height
     for (let j = 0; j < n; j++) {
       for (let i = 0; i < n; i++) {
         const x = (i / segments) * worldSize - half;
         const z = (j / segments) * worldSize - half;
 
-        // Fractal noise
+        // Fractal noise — gentler, more rolling hills. Big low-freq layer
+        // dominates so the terrain reads as a coherent landscape rather
+        // than spiky noise. High-freq layer is tiny micro-detail only.
         const biome = biomeAt(seed, x, z);
-        let h =
-          noise(x * 0.025, z * 0.025) * 0.6 +
-          noise2(x * 0.06, z * 0.06) * 0.3 +
-          noise3(x * 0.12, z * 0.12) * 0.07;
+        const n1 = noise(x * 0.012, z * 0.012);          // continents
+        const n2 = noise2(x * 0.035, z * 0.035);         // hills
+        const n3 = noise3(x * 0.09, z * 0.09);           // micro
+        let h = n1 * 0.7 + n2 * 0.25 + n3 * 0.05;
         h = (h + 1) / 2; // 0..1
-        if (biome === "desert") h *= 0.78;
-        if (biome === "tundra") h = h * 0.84 + 0.05;
-        if (biome === "swamp") h *= 0.62;
-        if (biome === "forest") h = h * 0.95 + 0.02;
+        // Soften peaks — bias toward mid-range plains, keep some variance.
+        h = Math.pow(h, 1.25);
+        h = 0.18 + h * 0.72;
+        if (biome === "desert") h = h * 0.6 + 0.12;
+        if (biome === "tundra") h = h * 0.78 + 0.08;
+        if (biome === "swamp") h = h * 0.5 + 0.05;
+        if (biome === "forest") h = h * 0.9 + 0.06;
 
-        // Circular island mask — falls to 0 at edge
+        // Smooth island falloff — wide flat plateau, soft beach ring.
         const d = Math.sqrt(x * x + z * z);
-        const mask = Math.max(0, 1 - Math.pow(d / islandRadius, 2.2));
+        const inner = islandRadius * 0.7;
+        const mask = 1 - smoothstep((d - inner) / (islandRadius - inner));
         h *= mask;
+        // Beach band — pull heights gently toward sea level near the edge
+        // so we get a smooth shore instead of a cliff.
+        const beach = smoothstep((d - islandRadius * 0.88) / (islandRadius * 0.15));
+        h = h * (1 - beach * 0.85);
 
-        // Flatten village center with a wide blend ring
-        const blend = 4;
+        // Flatten village center with a wide blend ring.
+        const blend = 8;
         if (d < villageRadius) {
-          h = 0.35; // plains-level pad
+          h = PAD_H;
         } else if (d < villageRadius + blend) {
-          const t = (d - villageRadius) / blend;
-          const s = t * t * (3 - 2 * t); // smoothstep
-          h = h * s + 0.35 * (1 - s);
+          const s = smoothstep((d - villageRadius) / blend);
+          h = h * s + PAD_H * (1 - s);
         }
 
         heights[j * n + i] = h;
       }
     }
+
+    // Single-pass 3x3 box smoothing to wash out any remaining noise spikes
+    // without flattening the silhouette. Preserves the village pad area.
+    const smoothed = new Float32Array(heights);
+    for (let j = 1; j < n - 1; j++) {
+      for (let i = 1; i < n - 1; i++) {
+        const idx = j * n + i;
+        const sum =
+          heights[idx - n - 1] + heights[idx - n] + heights[idx - n + 1] +
+          heights[idx - 1]     + heights[idx]     + heights[idx + 1] +
+          heights[idx + n - 1] + heights[idx + n] + heights[idx + n + 1];
+        smoothed[idx] = sum / 9;
+      }
+    }
+    heights.set(smoothed);
 
     const sampleAt = (x: number, z: number) => {
       const fx = ((x + half) / worldSize) * segments;
