@@ -9,7 +9,15 @@ export const runState = { toggled: false };
 export const playerPos = { x: 0, y: 0, z: 0 };
 export const playerState = { moving: false };
 
-export type EdgeEvent = "attack" | "action" | "ability1" | "ability2" | "ability3" | "jump";
+export type EdgeEvent =
+  | "attack"
+  | "attackDown"
+  | "attackUp"
+  | "action"
+  | "ability1"
+  | "ability2"
+  | "ability3"
+  | "jump";
 
 const listeners = new Map<EdgeEvent, Set<() => void>>();
 
