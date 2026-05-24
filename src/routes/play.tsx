@@ -1,15 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { useEffect, useState } from "react";
-import { z } from "zod";
 import { HUD } from "@/components/hud/HUD";
 import { Scene } from "@/components/game/Scene";
 import { RoomBar } from "@/components/hud/RoomBar";
 import { useMultiplayer } from "@/game/multiplayer";
-
-const searchSchema = z.object({
-  room: fallback(z.string().optional(), undefined),
-});
 
 export const Route = createFileRoute("/play")({
   head: () => ({
@@ -18,7 +12,9 @@ export const Route = createFileRoute("/play")({
       { name: "description", content: "Defend the Seed for five nights." },
     ],
   }),
-  validateSearch: zodValidator(searchSchema),
+  validateSearch: (search: Record<string, unknown>) => ({
+    room: typeof search.room === "string" ? search.room : undefined,
+  }),
   component: PlayPage,
 });
 
