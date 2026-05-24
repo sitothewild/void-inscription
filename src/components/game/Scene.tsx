@@ -14,6 +14,7 @@ import { RemotePlayer } from "./RemotePlayer";
 import { Village } from "./Village";
 import { Vendors } from "./Vendor";
 import { Herb } from "./Herb";
+import { Plateaus } from "./Plateaus";
 
 function World() {
   const resources = useGame((s) => s.resources);
@@ -49,6 +50,7 @@ export function Scene() {
         <Ground />
         <Seed />
       <Village />
+      <Plateaus />
       <Vendors />
         <Hero />
         <World />
