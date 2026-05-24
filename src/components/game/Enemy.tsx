@@ -5,8 +5,8 @@ import { heightAt } from "@/game/terrain";
 
 export function Enemy({ enemy }: { enemy: EnemyT }) {
   const ratio = Math.max(0, enemy.hp / ENEMY_MAX_HP);
-  const plateaus = useGame((s) => s.plateaus);
-  const ey = heightAt(enemy.x, enemy.z, plateaus);
+  const tiles = useGame((s) => s.tiles);
+  const ey = heightAt(enemy.x, enemy.z, tiles);
   return (
     <group position={[enemy.x, ey, enemy.z]}>
       <mesh position={[0, 0.5, 0]} castShadow>

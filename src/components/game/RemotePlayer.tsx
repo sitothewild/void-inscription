@@ -5,8 +5,8 @@ import { heightAt } from "@/game/terrain";
 
 export function RemotePlayer({ p }: { p: RemotePlayerState }) {
   const hpRatio = Math.max(0, Math.min(1, p.hp / 100));
-  const plateaus = useGame((s) => s.plateaus);
-  const py = heightAt(p.x, p.z, plateaus);
+  const tiles = useGame((s) => s.tiles);
+  const py = heightAt(p.x, p.z, tiles);
   return (
     <group position={[p.x, py, p.z]} rotation={[0, p.facing, 0]}>
       <mesh position={[0, 0.6, 0]} castShadow>

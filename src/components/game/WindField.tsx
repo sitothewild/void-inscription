@@ -13,14 +13,14 @@ import {
 // keep Vector2 import used by shader uniform
 import { useGame } from "@/game/store";
 import { ISLAND_RADIUS, VILLAGE_RADIUS } from "@/game/constants";
-import { heightAt, isOnRamp, isValidResourceSpot } from "@/game/terrain";
+import { heightAt, isOnRamp } from "@/game/terrain";
 import { mulberry32 } from "@/game/rng";
 
 const COUNT = 9000;
 
 export function WindField() {
   const ref = useRef<InstancedMesh>(null);
-  const plateaus = useGame((s) => s.plateaus);
+  const tiles = useGame((s) => s.tiles);
   const seed = useGame((s) => s.seed);
   const phase = useGame((s) => s.phase);
 
@@ -106,7 +106,6 @@ export function WindField() {
     let attempts = 0;
     while (placed < COUNT && attempts < COUNT * 10) {
       attempts++;
-      // Cluster around random anchors for natural density variation.
       const useCluster = rng() < 0.6;
       let x: number, z: number;
       if (useCluster) {
@@ -115,7 +114,7 @@ export function WindField() {
         const cx = Math.cos(ca) * cr;
         const cz = Math.sin(ca) * cr;
         const oa = rng() * Math.PI * 2;
-        const orad = rng() * 1.4;
+        const orad = rng() * 1.6;
         x = cx + Math.cos(oa) * orad;
         z = cz + Math.sin(oa) * orad;
       } else {
@@ -126,17 +125,9 @@ export function WindField() {
       }
       if (Math.hypot(x, z) > ISLAND_RADIUS - 1) continue;
       if (Math.hypot(x, z) < VILLAGE_RADIUS + 0.4) continue;
-      if (!isValidResourceSpot(x, z, plateaus) && !isOnRamp(x, z, plateaus)) {
-        let onPlateau = false;
-        for (const p of plateaus) {
-          if (Math.hypot(x - p.cx, z - p.cz) < p.radius - 0.4) {
-            onPlateau = true;
-            break;
-          }
-        }
-        if (!onPlateau) continue;
-      }
-      const y = heightAt(x, z, plateaus);
+      // Grass on flat tops only — skip ramp slopes.
+      if (isOnRamp(x, z, tiles)) continue;
+      const y = heightAt(x, z, tiles);
       const s = 0.65 + rng() * 1.1;
       dummy.position.set(x, y, z);
       dummy.rotation.set(0, rng() * Math.PI * 2, 0);
@@ -154,7 +145,7 @@ export function WindField() {
     ref.current.count = placed;
     ref.current.instanceMatrix.needsUpdate = true;
     if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
-  }, [plateaus, seed]);
+  }, [tiles, seed]);
 
   useFrame((_, dt) => {
     const shader = material.userData.shader;

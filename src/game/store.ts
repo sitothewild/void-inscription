@@ -11,7 +11,7 @@ import {
   WAVE_GROWTH,
 } from "./constants";
 import { generateWorld, type Resource } from "./world";
-import { generatePlateaus, type Plateau } from "./terrain";
+import { generateTiles, type Tile } from "./terrain";
 import type { RemotePlayerState, Snapshot } from "@/lib/net/codec";
 import {
   WEAPONS,
@@ -83,7 +83,7 @@ type GameState = {
   resources: Resource[];
   enemies: Enemy[];
   inventory: Inventory;
-  plateaus: Plateau[];
+  tiles: Tile[];
   nearestInteractId: string | null;
 
   spawnedThisNight: number;
@@ -159,7 +159,7 @@ function freshInventory(): Inventory {
 }
 
 function freshState(seed: number) {
-  const plateaus = generatePlateaus(seed);
+  const tiles = generateTiles(seed);
   return {
     seed,
     status: "playing" as Status,
@@ -173,8 +173,8 @@ function freshState(seed: number) {
     heroAttackCd: 0,
     seedHp: SEED_MAX_HP,
     gates: freshGates(),
-    resources: generateWorld(seed, plateaus),
-    plateaus,
+    resources: generateWorld(seed, tiles),
+    tiles,
     nearestInteractId: null as string | null,
     enemies: [] as Enemy[],
     inventory: freshInventory(),
@@ -435,7 +435,7 @@ export const useGame = create<GameState>((set, get) => ({
       if (selfId && snap.players[selfId]) {
         heroHp = snap.players[selfId].hp;
       }
-      const plateaus = snap.seed !== s.seed ? generatePlateaus(snap.seed) : s.plateaus;
+      const tiles = snap.seed !== s.seed ? generateTiles(snap.seed) : s.tiles;
       return {
         phase: snap.phase,
         phaseTime: snap.phaseTime,
@@ -447,7 +447,7 @@ export const useGame = create<GameState>((set, get) => ({
         inventory: snap.inventory,
         gates: snap.gates,
         seed: snap.seed,
-        plateaus,
+        tiles,
         players,
         heroHp,
       };

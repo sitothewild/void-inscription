@@ -2,9 +2,9 @@ import { useGame } from "@/game/store";
 import { heightAt } from "@/game/terrain";
 
 export function Rock({ id, x, z }: { id: string; x: number; z: number }) {
-  const plateaus = useGame((s) => s.plateaus);
+  const tiles = useGame((s) => s.tiles);
   const highlight = useGame((s) => s.nearestInteractId === id);
-  const y = heightAt(x, z, plateaus);
+  const y = heightAt(x, z, tiles);
   return (
     <group position={[x, y, z]}>
       <mesh position={[0, 0.3, 0]} castShadow>
