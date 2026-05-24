@@ -67,7 +67,8 @@ export function computeHutSlots(gateAngles: number[] = VILLAGE_GATE_ANGLES): Hut
       const r = radius + (rng() - 0.5) * 1.2;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
-      slots.push({ x, z, rotY: -a + Math.PI / 2, angle: a });
+      // Door (hut local +Z) faces the village seed/pylon at the center.
+      slots.push({ x, z, rotY: -a + Math.PI / 2 + Math.PI, angle: a });
     }
   }
   return slots;

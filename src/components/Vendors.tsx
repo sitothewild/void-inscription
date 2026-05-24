@@ -36,15 +36,18 @@ export function Vendors({ data }: { data: TerrainData }) {
       // Tangent (perpendicular to radial), for the side offset along the hut wall.
       const ut = -vr;
       const vt = ur;
-      // Stand 1.6m further out from the hut center (past the door plane).
+      // Stand 1.6m IN FRONT of the door — doors face the seed/center now,
+      // so vendors live on the inner (plaza) side of their hut. This keeps
+      // them visible from the isometric camera instead of hidden behind
+      // the hut's outer wall.
       const standOut = 1.6;
-      const x = hut.x + ur * standOut + ut * a.sideOffset;
-      const z = hut.z + vr * standOut + vt * a.sideOffset;
+      const x = hut.x - ur * standOut + ut * a.sideOffset;
+      const z = hut.z - vr * standOut + vt * a.sideOffset;
       return [{
         url: a.url,
         label: a.label,
         pos: [x, data.sampleWorldY(x, z), z] as [number, number, number],
-        // Face inward toward the plaza / pylon so the player walking up sees their face.
+        // Face the seed/pylon at world origin.
         rotY: Math.atan2(-x, -z),
       }];
     });
