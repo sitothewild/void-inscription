@@ -15,6 +15,7 @@ import { InteractionSystem } from "./InteractionSystem";
 import { Ocean } from "./Ocean";
 import { SkyEnvironment } from "./SkyEnvironment";
 import { PirateShip } from "./PirateShip";
+import { FlyingCity } from "./FlyingCity";
 import { useProceduralTerrain } from "@/hooks/useProceduralTerrain";
 import { usePortalTrigger } from "@/hooks/usePortalTrigger";
 
@@ -88,6 +89,12 @@ export function Level1({ spawn, onEnterPortal }: Props) {
       <Suspense fallback={null}>
         <PirateShip position={[-60, 0.4, -terrain.worldSize / 2 - 30]} rotation={Math.PI * 0.15} scale={7} />
         <PirateShip position={[80, 0.4, -terrain.worldSize / 2 - 55]} rotation={-Math.PI * 0.4} scale={5} url="/models/pirate/Small_Ship.glb" />
+      </Suspense>
+
+      {/* Floating sky city — pure visual, drifts slowly above the island. */}
+      <Suspense fallback={null}>
+        <FlyingCity position={[40, 70, -50]} scale={6} seed={1337} />
+        <FlyingCity position={[-90, 85, 60]} scale={4} seed={4242} />
       </Suspense>
 
       {/* Village Anchor — spinning cube + particles */}
