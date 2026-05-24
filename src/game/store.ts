@@ -8,6 +8,9 @@ import {
   WAVE_GROWTH,
 } from "./constants";
 import { generateWorld, type Resource } from "./world";
+import type { RemotePlayerState, Snapshot } from "@/lib/net/codec";
+
+export type { Resource };
 
 export type Enemy = {
   id: string;
@@ -51,6 +54,14 @@ type GameState = {
   spawnedThisNight: number;
   toSpawnThisNight: number;
 
+  // Multiplayer
+  selfId: string | null;
+  isHost: boolean;
+  roomCode: string | null;
+  selfName: string;
+  selfColor: string;
+  players: Record<string, RemotePlayerState>; // remote players only (not self)
+
   reset: (seed?: number) => void;
   setHero: (x: number, z: number, facing: number) => void;
   damageHero: (n: number) => void;
@@ -65,6 +76,18 @@ type GameState = {
   tickPhase: (dt: number) => void;
   setStatus: (s: Status) => void;
   craft: (item: "axe" | "sword" | "palisade") => void;
+
+  setMultiplayer: (info: {
+    selfId: string;
+    roomCode: string;
+    name: string;
+    color: string;
+  }) => void;
+  setHost: (isHost: boolean) => void;
+  setPlayer: (id: string, p: RemotePlayerState) => void;
+  removePlayer: (id: string) => void;
+  applySnapshot: (snap: Snapshot) => void;
+  leaveRoom: () => void;
 };
 
 function freshState(seed: number) {
@@ -91,8 +114,23 @@ function freshState(seed: number) {
 export const useGame = create<GameState>((set, get) => ({
   ...freshState(Math.floor(Math.random() * 1e9)),
 
+  selfId: null,
+  isHost: false,
+  roomCode: null,
+  selfName: "Viking",
+  selfColor: "#3a6ea8",
+  players: {},
+
   reset: (seed) =>
-    set(() => freshState(seed ?? Math.floor(Math.random() * 1e9))),
+    set((s) => ({
+      ...freshState(seed ?? Math.floor(Math.random() * 1e9)),
+      selfId: s.selfId,
+      isHost: s.isHost,
+      roomCode: s.roomCode,
+      selfName: s.selfName,
+      selfColor: s.selfColor,
+      players: {},
+    })),
 
   setHero: (heroX, heroZ, heroFacing) => set({ heroX, heroZ, heroFacing }),
   setHeroAttackCd: (heroAttackCd) => set({ heroAttackCd }),
@@ -195,5 +233,57 @@ export const useGame = create<GameState>((set, get) => ({
         return {};
       }
       return { inventory: inv };
+    }),
+
+  setMultiplayer: ({ selfId, roomCode, name, color }) =>
+    set({ selfId, roomCode, selfName: name, selfColor: color }),
+
+  setHost: (isHost) => set({ isHost }),
+
+  setPlayer: (id, p) =>
+    set((s) => ({ players: { ...s.players, [id]: p } })),
+
+  removePlayer: (id) =>
+    set((s) => {
+      const next = { ...s.players };
+      delete next[id];
+      return { players: next };
+    }),
+
+  applySnapshot: (snap) =>
+    set((s) => {
+      // Clients fully overwrite world from host snapshot.
+      // Self is excluded from snap.players by host; merge remote players.
+      const selfId = s.selfId;
+      const players: Record<string, RemotePlayerState> = {};
+      for (const [id, p] of Object.entries(snap.players)) {
+        if (id !== selfId) players[id] = p;
+      }
+      // Update self HP from snapshot (host owns combat resolution)
+      let heroHp = s.heroHp;
+      if (selfId && snap.players[selfId]) {
+        heroHp = snap.players[selfId].hp;
+      }
+      return {
+        phase: snap.phase,
+        phaseTime: snap.phaseTime,
+        day: snap.day,
+        seedHp: snap.seedHp,
+        status: snap.status,
+        enemies: snap.enemies,
+        resources: snap.resources,
+        inventory: snap.inventory,
+        seed: snap.seed,
+        players,
+        heroHp,
+      };
+    }),
+
+  leaveRoom: () =>
+    set({
+      selfId: null,
+      isHost: false,
+      roomCode: null,
+      players: {},
     }),
 }));
