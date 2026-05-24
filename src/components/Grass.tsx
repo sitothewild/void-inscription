@@ -2,14 +2,11 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import {
   Color,
-  DynamicDrawUsage,
   InstancedMesh,
   Matrix4,
   MeshStandardMaterial,
   Object3D,
   PlaneGeometry,
-  ShaderLib,
-  UniformsUtils,
   DoubleSide,
 } from "three";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
