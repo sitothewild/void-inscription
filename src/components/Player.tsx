@@ -156,7 +156,7 @@ export function Player({ spawn, camera, onRef }: Props) {
       mass={1}
       linearDamping={0.5}
     >
-      <CapsuleCollider args={[0.5, 0.5]} />
+      <CapsuleCollider args={[0.5, 0.5]} friction={1.2} restitution={0} />
       <group ref={visualRef} position={[0, -1, 0]}>
         <CharacterModel url="/models/characters/warrior.glb" scale={1} animation="idle" />
         {/* Bow in hand */}
