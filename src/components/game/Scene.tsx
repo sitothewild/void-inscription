@@ -10,10 +10,12 @@ import { Lighting } from "./Lighting";
 import { Rock } from "./Rock";
 import { Seed } from "./Seed";
 import { Tree } from "./Tree";
+import { RemotePlayer } from "./RemotePlayer";
 
 function World() {
   const resources = useGame((s) => s.resources);
   const enemies = useGame((s) => s.enemies);
+  const players = useGame((s) => s.players);
   return (
     <>
       {resources.map((r) =>
@@ -25,6 +27,9 @@ function World() {
       )}
       {enemies.map((e) => (
         <Enemy key={e.id} enemy={e} />
+      ))}
+      {Object.entries(players).map(([id, p]) => (
+        <RemotePlayer key={id} p={p} />
       ))}
     </>
   );
