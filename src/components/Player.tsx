@@ -7,7 +7,8 @@ import {
   useRapier,
   type RapierRigidBody,
 } from "@react-three/rapier";
-import { Vector3 } from "three";
+import { Group, Vector3 } from "three";
+import { CharacterModel } from "./CharacterModel";
 
 export type Controls = "forward" | "back" | "left" | "right" | "jump";
 
@@ -23,11 +24,13 @@ const JUMP_IMPULSE = 12;
 
 export function Player({ spawn, camera, onRef }: Props) {
   const bodyRef = useRef<RapierRigidBody | null>(null);
+  const visualRef = useRef<Group>(null);
   const [, get] = useKeyboardControls<Controls>();
   const { rapier, world } = useRapier();
   const cam = useThree((s) => s.camera);
   const targetCam = useRef(new Vector3());
   const targetLook = useRef(new Vector3());
+  const facing = useRef(0);
 
   // Teleport on spawn change
   useEffect(() => {
@@ -71,6 +74,16 @@ export function Player({ spawn, camera, onRef }: Props) {
       b.applyImpulse({ x: 0, y: JUMP_IMPULSE, z: 0 }, true);
     }
 
+    // Face movement direction
+    if (len > 0 && visualRef.current) {
+      const desired = Math.atan2(dx, dz);
+      let delta = desired - facing.current;
+      while (delta > Math.PI) delta -= Math.PI * 2;
+      while (delta < -Math.PI) delta += Math.PI * 2;
+      facing.current += delta * 0.2;
+      visualRef.current.rotation.y = facing.current;
+    }
+
     // Camera follow
     if (camera === "iso") {
       targetCam.current.set(t.x + 0, t.y + 30, t.z + 30);
@@ -97,10 +110,9 @@ export function Player({ spawn, camera, onRef }: Props) {
       linearDamping={0.5}
     >
       <CapsuleCollider args={[0.5, 0.5]} />
-      <mesh castShadow position={[0, 0, 0]}>
-        <capsuleGeometry args={[0.5, 1.0, 8, 16]} />
-        <meshStandardMaterial color={"#e6b35a"} emissive={"#3a2410"} emissiveIntensity={0.3} />
-      </mesh>
+      <group ref={visualRef} position={[0, -1, 0]}>
+        <CharacterModel url="/models/characters/warrior.glb" scale={1} animation="idle" />
+      </group>
     </RigidBody>
   );
 }
