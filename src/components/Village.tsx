@@ -56,16 +56,19 @@ const GATE = {
  * mesh is loaded asynchronously inside Suspense.
  */
 const FENCE_URL = "/models/fences/Wood_Fence_1.glb";
-/** Approximate segment width of one fence GLB. Slightly under-counted on
- *  purpose so adjacent segments overlap a touch and gaps disappear. */
-export const FENCE_SEGMENT_LEN = 1.55;
+/** Base width of the fence GLB before scaling; used to resize each chord so
+ *  neighboring fence ends meet instead of hiding gaps by adding more pieces. */
+const FENCE_MODEL_LEN = 2.0;
+export const FENCE_SEGMENT_LEN = 2.45;
 
 function FenceSegment({
   position,
   rotation,
+  length,
 }: {
   position: [number, number, number];
   rotation: number;
+  length: number;
 }) {
   return (
     <RigidBody
@@ -74,9 +77,9 @@ function FenceSegment({
       position={position}
       rotation={[0, rotation, 0]}
     >
-      <CuboidCollider args={[FENCE_SEGMENT_LEN / 2 + 0.05, 0.7, 0.08]} position={[0, 0.7, 0]} />
+      <CuboidCollider args={[length / 2, 0.7, 0.08]} position={[0, 0.7, 0]} />
       <Suspense fallback={null}>
-        <GltfProp url={FENCE_URL} scale={1.25} />
+        <GltfProp url={FENCE_URL} scale={[length / FENCE_MODEL_LEN, 1.15, 1.15]} />
       </Suspense>
     </RigidBody>
   );
