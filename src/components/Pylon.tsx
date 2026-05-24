@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import {
   AdditiveBlending,
@@ -8,6 +8,9 @@ import {
   Mesh,
   type Points as PointsType,
 } from "three";
+import { health } from "@/game/health";
+import { hitTargets } from "@/game/hitTargets";
+import { WorldHealthBar } from "./WorldHealthBar";
 
 type Props = {
   position: [number, number, number];
@@ -20,6 +23,19 @@ export function Pylon({ position, color = "#ffb060" }: Props) {
   const cubeRef = useRef<Mesh>(null);
   const innerRef = useRef<Mesh>(null);
   const pointsRef = useRef<PointsType>(null);
+
+  // Register the seed as a damageable hit target. Sphere ~2m around the pylon.
+  useEffect(() => {
+    health.ensure("seed", 500);
+    hitTargets.register({
+      id: "seed",
+      x: position[0],
+      y: position[1],
+      z: position[2],
+      radius: 1.6,
+    });
+    return () => hitTargets.unregister("seed");
+  }, [position]);
 
   const count = 220;
   const { geometry, radii, speeds, phases, heights } = useMemo(() => {
@@ -107,6 +123,8 @@ export function Pylon({ position, color = "#ffb060" }: Props) {
         />
       </points>
       <pointLight color={color} intensity={10} distance={30} />
+      {/* World-space health bar above the seed */}
+      <WorldHealthBar id="seed" yOffset={2.5} width={2.2} color={"#ffd86b"} label="Seed" />
     </group>
   );
 }
