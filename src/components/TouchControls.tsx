@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Crosshair, Hand, Sparkles, Wind, Zap } from "lucide-react";
-import { emitEdge, mobileAxis } from "@/game/inputStore";
+import { Crosshair, Footprints, Hand, Sparkles, Wind, Zap } from "lucide-react";
+import { emitEdge, mobileAxis, runState } from "@/game/inputStore";
 
 type Vec = { x: number; y: number };
 
@@ -162,6 +162,10 @@ export function TouchControls() {
         <Joystick />
       </div>
 
+      <div style={{ pointerEvents: "auto" }}>
+        <RunToggle />
+      </div>
+
       {/* Right-side ability cluster (Genshin layout) */}
       <div style={{ pointerEvents: "auto" }}>
         {/* Ability 1 — top */}
@@ -211,5 +215,50 @@ export function TouchControls() {
         />
       </div>
     </div>
+  );
+}
+
+function RunToggle() {
+  const [on, setOn] = useState(false);
+  const toggle = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    const next = !runState.toggled;
+    runState.toggled = next;
+    setOn(next);
+  }, []);
+  const color = on ? "#ffd166" : "#9ad0ff";
+  return (
+    <button
+      onPointerDown={toggle}
+      aria-label={on ? "Running (tap to walk)" : "Walking (tap to run)"}
+      style={{
+        position: "absolute",
+        left: 180,
+        bottom: 90,
+        width: 58,
+        height: 58,
+        borderRadius: "50%",
+        border: `2px solid ${color}aa`,
+        background: on
+          ? `radial-gradient(circle, ${color}, ${color}88)`
+          : `radial-gradient(circle, rgba(255,255,255,0.18), rgba(0,0,0,0.4))`,
+        color: "white",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxShadow: on
+          ? `0 0 20px ${color}, inset 0 0 10px ${color}`
+          : "0 4px 12px rgba(0,0,0,0.4)",
+        touchAction: "none",
+        userSelect: "none",
+        fontSize: 11,
+        fontWeight: 600,
+        gap: 2,
+        flexDirection: "column",
+      }}
+    >
+      <Footprints size={22} />
+      <span>{on ? "RUN" : "WALK"}</span>
+    </button>
   );
 }

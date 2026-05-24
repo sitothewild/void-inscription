@@ -20,6 +20,7 @@ export function Game() {
       { name: "left" satisfies Controls, keys: ["KeyA", "ArrowLeft"] },
       { name: "right" satisfies Controls, keys: ["KeyD", "ArrowRight"] },
       { name: "jump" satisfies Controls, keys: ["Space"] },
+      { name: "sprint" satisfies Controls, keys: ["ShiftLeft", "ShiftRight"] },
     ],
     [],
   );
