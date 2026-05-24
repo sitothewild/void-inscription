@@ -9,7 +9,7 @@ import {
   type RapierRigidBody,
 } from "@react-three/rapier";
 import { Group, Vector3 } from "three";
-import { CharacterModel } from "./CharacterModel";
+import { CharacterModel, type CharState } from "./CharacterModel";
 import { fireArrow } from "./Projectiles";
 import { mobileAxis, onEdge, playerPos, playerState } from "@/game/inputStore";
 import { setPlayerChunkPosition } from "@/game/chunkManager";
@@ -41,6 +41,8 @@ export function Player({ spawn, camera, onRef }: Props) {
   const verticalVelocity = useRef(0);
   const bow = useGLTF("/models/items/bow.glb");
   const movingRef = useRef(false);
+  const speedRef = useRef(0);
+  const stateRef = useRef<CharState>("idle");
 
   useEffect(() => {
     const controller = world.createCharacterController(0.05);
@@ -138,7 +140,12 @@ export function Player({ spawn, camera, onRef }: Props) {
       const mag = Math.min(1, len);
       dx = (dx / len) * SPEED * mag;
       dz = (dz / len) * SPEED * mag;
+      speedRef.current = Math.hypot(dx, dz);
+    } else {
+      speedRef.current = 0;
     }
+    stateRef.current =
+      speedRef.current < 0.1 ? "idle" : speedRef.current > SPEED * 0.7 ? "run" : "walk";
 
     // Grounded check: cast ray downward
     const t = b.translation();
@@ -207,10 +214,9 @@ export function Player({ spawn, camera, onRef }: Props) {
       <CapsuleCollider ref={colliderRef} args={[0.55, 0.42]} friction={1.4} restitution={0} />
       <group ref={visualRef} position={[0, -1, 0]}>
         <CharacterModel
-          url="/models/characters/warrior.glb"
-          scale={1.05}
-          animation="idle"
-          getMoving={() => movingRef.current}
+          url="/models/characters/men/Adventurer.glb"
+          scale={1}
+          getState={() => stateRef.current}
         />
         {/* Bow in hand */}
         <group position={[0.45, 1.1, 0.1]} rotation={[0, Math.PI / 2, Math.PI / 2]}>
