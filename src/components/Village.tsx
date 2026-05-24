@@ -441,7 +441,7 @@ export function Village({ data }: { data: TerrainData }) {
         <Hut key={i} position={h.pos} rotation={h.rot} url={HOUSE_URLS[i % HOUSE_URLS.length]} />
       ))}
       {fence.segments.map((s, i) => (
-        <FenceSegment key={i} position={s.pos} rotation={s.rot} />
+        <FenceSegment key={i} position={s.pos} rotation={s.rot} length={s.length} />
       ))}
       {VILLAGE_GATE_ANGLES.map((angle, i) => (
         <Gate key={i} data={data} radius={fence.radius} angle={angle} index={i} />
