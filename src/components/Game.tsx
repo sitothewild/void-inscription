@@ -9,6 +9,8 @@ import type { Controls } from "./Player";
 import { TouchControls } from "./TouchControls";
 import { HUD } from "./HUD";
 import { PauseMenu } from "./PauseMenu";
+import { Shop } from "./Shop";
+import { InventoryWindow } from "./InventoryWindow";
 
 export function Game() {
   const [currentLevel, setCurrentLevel] = useState<1 | 2>(1);
@@ -62,6 +64,8 @@ export function Game() {
       <HUD />
       <TouchControls />
       <PauseMenu />
+      <Shop />
+      <InventoryWindow />
 
       <div
         style={{
@@ -80,8 +84,8 @@ export function Game() {
         }}
       >
         <div>Level: {currentLevel}</div>
-        <div>WASD move · Space jump</div>
-        <div>Walk to a portal to enter</div>
+        <div>WASD move · Space jump · E interact · I bag</div>
+        <div>Run to a portal to enter</div>
       </div>
     </div>
   );
