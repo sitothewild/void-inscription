@@ -266,6 +266,21 @@ export function Village({ data }: { data: TerrainData }) {
       if (inGate) continue;
       const y = data.sampleWorldY(x, z) + 0.55;
       posts.push([x, y, z]);
+      // Stitch a connector rail from this last-before-gate post directly to
+      // the gate post so there is no walk-through gap on either flank.
+      if (nextInGate) {
+        const gx = x > 0 ? GATE.postX : -GATE.postX;
+        const gz = r; // gate posts sit at z = fence radius
+        const mx = (x + gx) / 2;
+        const mz = (z + gz) / 2;
+        const dy = data.sampleWorldY(mx, mz);
+        const dxg = gx - x;
+        const dzg = gz - z;
+        const length = Math.hypot(dxg, dzg);
+        const rot = Math.atan2(-dzg, dxg);
+        rails.push({ pos: [mx, dy + 0.78, mz], rot, length, y: dy + 0.78 });
+        rails.push({ pos: [mx, dy + 1.2, mz], rot, length, y: dy + 1.2 });
+      }
       if (!nextInGate) {
         const x2 = Math.cos(nextA) * r;
         const z2 = Math.sin(nextA) * r;
