@@ -217,10 +217,16 @@ export function Village({ data }: { data: TerrainData }) {
   const huts = useMemo(() => {
     const rng = mulberry32(99);
     const arr: Array<{ pos: [number, number, number]; rot: number }> = [];
-    const radius = 9;
-    for (let i = 0; i < 7; i++) {
-      const a = (i / 7) * Math.PI * 2 + rng() * 0.2;
-      const r = radius + rng() * 0.8;
+    const radius = 10;
+    // Reserve the wedge in front of the gate (centered on +Z) so the main
+    // path stays clear. Place huts on a 5/6-circle arc with even spacing.
+    const gateGap = Math.PI * 0.34; // ~61° of arc kept empty around the gate
+    const usable = Math.PI * 2 - gateGap;
+    const count = 6;
+    const start = Math.PI / 2 + gateGap / 2; // start just past the gate wedge
+    for (let i = 0; i < count; i++) {
+      const a = start + (i / (count - 1)) * usable + (rng() - 0.5) * 0.12;
+      const r = radius + (rng() - 0.5) * 1.2;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
       arr.push({ pos: [x, baseY, z], rot: -a + Math.PI / 2 });
@@ -233,15 +239,20 @@ export function Village({ data }: { data: TerrainData }) {
     const rails: Array<{ pos: [number, number, number]; rot: number; length: number; y: number }> =
       [];
     const r = 15;
-    const n = 56;
+    const n = 40; // ~2.35m post spacing — readable, not picket-dense
+    // Gate arc must match the actual door clearance (POST_X = 4 at radius 15
+    // → half-angle = asin(4.4/15) ≈ 0.30 rad ≈ 0.094π).
+    const gateHalf = Math.PI * 0.1;
+    const gateMin = Math.PI / 2 - gateHalf;
+    const gateMax = Math.PI / 2 + gateHalf;
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
       const nextA = ((i + 1) / n) * Math.PI * 2;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
-      // Leave a gap (gate) on +Z side
-      const inGate = a > Math.PI * 0.39 && a < Math.PI * 0.61;
-      const nextInGate = nextA > Math.PI * 0.39 && nextA < Math.PI * 0.61;
+      // Leave a gap (gate) on +Z side sized to the actual gate opening.
+      const inGate = a > gateMin && a < gateMax;
+      const nextInGate = nextA > gateMin && nextA < gateMax;
       if (inGate) continue;
       const y = data.sampleWorldY(x, z) + 0.55;
       posts.push([x, y, z]);
