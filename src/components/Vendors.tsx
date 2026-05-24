@@ -12,26 +12,32 @@ type Vendor = {
 /** Static NPC vendors clustered near the village campfire / pylon. */
 export function Vendors({ data }: { data: TerrainData }) {
   const baseY = data.sampleWorldY(0, 0);
+  // Place vendors on a comfortable inner ring that scales with the village
+  // pad. They sit between the central pylon and the hut ring (~r=10).
+  const ringR = Math.max(4, data.villageRadius * 0.45);
 
   const vendors = useMemo<Vendor[]>(() => {
+    // Keep the +Z corridor (in front of the gate) clear: vendors only occupy
+    // the back/side arcs around the campfire.
     const ring: Array<{ url: string; label: string; angle: number; radius: number }> = [
-      { url: "/models/characters/men/Farmer.glb", label: "Trader", angle: 0.2, radius: 4 },
-      { url: "/models/characters/men/King.glb", label: "Captain", angle: 2.1, radius: 4.2 },
-      { url: "/models/characters/men/Worker.glb", label: "Blacksmith", angle: 4.0, radius: 4 },
-      { url: "/models/characters/men/Hoodie_Character.glb", label: "Scout", angle: 5.5, radius: 4 },
+      // Angles in radians; π/2 (≈1.57) is the gate, so we skip ~[1.1, 2.0].
+      { url: "/models/characters/men/Farmer.glb", label: "Trader", angle: 0.4, radius: ringR },
+      { url: "/models/characters/men/Worker.glb", label: "Blacksmith", angle: 2.5, radius: ringR },
+      { url: "/models/characters/men/King.glb", label: "Captain", angle: Math.PI + 0.3, radius: ringR * 0.7 },
+      { url: "/models/characters/men/Hoodie_Character.glb", label: "Scout", angle: 5.1, radius: ringR },
     ];
     return ring.map((v) => {
       const x = Math.cos(v.angle) * v.radius;
       const z = Math.sin(v.angle) * v.radius;
-      // Face the campfire (origin)
+      // Face the central pylon (origin)
       return {
         url: v.url,
         label: v.label,
-        pos: [x, baseY, z],
+        pos: [x, data.sampleWorldY(x, z), z],
         rotY: Math.atan2(-x, -z),
       };
     });
-  }, [baseY]);
+  }, [data, baseY, ringR]);
 
   return (
     <group>
