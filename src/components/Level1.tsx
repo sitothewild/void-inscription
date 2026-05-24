@@ -81,7 +81,7 @@ export function Level1({ spawn, onEnterPortal }: Props) {
 
       <Terrain data={terrain} />
       <Resources data={terrain} />
-      <Grass data={terrain} count={6000} />
+      <Grass data={terrain} count={18000} />
       <Village data={terrain} />
       <Suspense fallback={null}>
         <Vendors data={terrain} />
