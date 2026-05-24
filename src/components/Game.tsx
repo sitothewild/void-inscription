@@ -6,6 +6,8 @@ import { ACESFilmicToneMapping, SRGBColorSpace } from "three";
 import { Level1 } from "./Level1";
 import { Level2 } from "./Level2";
 import type { Controls } from "./Player";
+import { TouchControls } from "./TouchControls";
+import { HUD } from "./HUD";
 
 export function Game() {
   const [currentLevel, setCurrentLevel] = useState<1 | 2>(1);
@@ -54,6 +56,9 @@ export function Game() {
           </Physics>
         </Canvas>
       </KeyboardControls>
+
+      <HUD />
+      <TouchControls />
 
       <div
         style={{
