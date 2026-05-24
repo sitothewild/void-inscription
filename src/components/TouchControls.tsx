@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Crosshair, Footprints, Hand, Sparkles, Wind, Zap } from "lucide-react";
+import { ArrowUp, Crosshair, Footprints, Hand, Sparkles, Wind, Zap } from "lucide-react";
 import { emitEdge, mobileAxis, runState } from "@/game/inputStore";
 
 type Vec = { x: number; y: number };
@@ -212,6 +212,15 @@ export function TouchControls() {
           icon={<Hand size={28} />}
           onPress={() => emitEdge("action")}
           style={{ right: 130, bottom: 40 }}
+        />
+        {/* Jump — above the action button */}
+        <ActionButton
+          label="Jump"
+          size={64}
+          color="#ffe066"
+          icon={<ArrowUp size={28} />}
+          onPress={() => emitEdge("jump")}
+          style={{ right: 130, bottom: 250 }}
         />
       </div>
     </div>
