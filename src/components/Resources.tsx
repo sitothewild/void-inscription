@@ -34,10 +34,10 @@ const BUCKETS: Bucket[] = [
 ];
 
 export function Resources({ data }: { data: TerrainData }) {
+  const exclusion = data.villageRadius + 3;
   const items = useMemo(() => {
     const out: Omit<Resource, "id">[] = [];
     const half = data.worldSize / 2;
-    const villageRadius = 17;
     for (const b of BUCKETS) {
       const rng = mulberry32(b.seed);
       let attempts = 0;
@@ -46,7 +46,7 @@ export function Resources({ data }: { data: TerrainData }) {
         attempts++;
         const x = (rng() * 2 - 1) * half * 0.92;
         const z = (rng() * 2 - 1) * half * 0.92;
-        if (Math.hypot(x, z) < villageRadius) continue;
+        if (Math.hypot(x, z) < exclusion) continue;
         const h = data.sampleAt(x, z);
         if (h < b.hMin || h > b.hMax) continue;
         out.push({
@@ -60,7 +60,7 @@ export function Resources({ data }: { data: TerrainData }) {
       }
     }
     return out;
-  }, [data]);
+  }, [data, exclusion]);
 
   useEffect(() => {
     world.setResources(items);
