@@ -29,7 +29,7 @@ function PlateauMesh({ p }: { p: Plateau }) {
       </mesh>
       {/* Ramp — a tilted box bridging plateau top to ground */}
       <group position={[mx, p.height / 2, mz]} rotation={[0, -p.ramp.angle, 0]}>
-        <mesh rotation={[0, 0, slope]} castShadow receiveShadow>
+        <mesh rotation={[0, 0, -slope]} castShadow receiveShadow>
           <boxGeometry args={[p.ramp.length / Math.cos(slope), 0.18, p.ramp.width]} />
           <meshStandardMaterial color="#7a6a4a" roughness={0.95} />
         </mesh>
