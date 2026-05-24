@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Group, Mesh } from "three";
-import { RigidBody, type RapierRigidBody } from "@react-three/rapier";
+import { CuboidCollider, RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import { onEdge, playerPos } from "@/game/inputStore";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
 
@@ -18,7 +18,10 @@ function mulberry32(seed: number) {
 
 function Hut({ position, rotation }: { position: [number, number, number]; rotation: number }) {
   return (
-    <RigidBody type="fixed" colliders="cuboid" position={position} rotation={[0, rotation, 0]}>
+    <RigidBody type="fixed" colliders={false} position={position} rotation={[0, rotation, 0]}>
+      {/* Single tight collider matching the wall box — keeps players from
+          bumping the invisible roof overhang or door plane. */}
+      <CuboidCollider args={[1.2, 0.9, 1.0]} position={[0, 0.9, 0]} friction={1.2} />
       {/* Base log walls */}
       <mesh castShadow receiveShadow position={[0, 0.9, 0]}>
         <boxGeometry args={[2.4, 1.8, 2.0]} />
@@ -37,6 +40,13 @@ function Hut({ position, rotation }: { position: [number, number, number]; rotat
     </RigidBody>
   );
 }
+
+/** Shared gate dimensions so fence stitching and door geometry agree. */
+const GATE = {
+  postX: 4.0,
+  /** Half-width of each door — two doors cover [-2*half, +2*half] when closed. */
+  doorHalf: 2.0,
+};
 
 function FencePost({
   position,
@@ -84,9 +94,9 @@ function FenceRail({
 function Gate({ data, radius }: { data: TerrainData; radius: number }) {
   const z = radius;
   const y = data.sampleWorldY(0, z);
-  // Gate clearance: ~8m wide opening, two 3m doors with a small center seam.
-  const POST_X = 4.0;
-  const DOOR_HALF = 1.5; // door width = 3.0
+  // Gate clearance: 8m wide opening, two 4m doors that fully close.
+  const POST_X = GATE.postX;
+  const DOOR_HALF = GATE.doorHalf;
   const posts: Array<[number, number, number]> = [
     [-POST_X, data.sampleWorldY(-POST_X, z) + 0.9, z],
     [POST_X, data.sampleWorldY(POST_X, z) + 0.9, z],
@@ -248,14 +258,46 @@ export function Village({ data }: { data: TerrainData }) {
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
       const nextA = ((i + 1) / n) * Math.PI * 2;
+      const prevA = ((i - 1 + n) / n) * Math.PI * 2;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
       // Leave a gap (gate) on +Z side sized to the actual gate opening.
       const inGate = a > gateMin && a < gateMax;
       const nextInGate = nextA > gateMin && nextA < gateMax;
+      const prevInGate = prevA > gateMin && prevA < gateMax;
       if (inGate) continue;
       const y = data.sampleWorldY(x, z) + 0.55;
       posts.push([x, y, z]);
+      // Stitch a connector rail from the gate post to this first-after-gate
+      // post so the left flank also closes off cleanly.
+      if (prevInGate) {
+        const gx = x > 0 ? GATE.postX : -GATE.postX;
+        const gz = r;
+        const mx = (x + gx) / 2;
+        const mz = (z + gz) / 2;
+        const dy = data.sampleWorldY(mx, mz);
+        const dxg = x - gx;
+        const dzg = z - gz;
+        const length = Math.hypot(dxg, dzg);
+        const rot = Math.atan2(-dzg, dxg);
+        rails.push({ pos: [mx, dy + 0.78, mz], rot, length, y: dy + 0.78 });
+        rails.push({ pos: [mx, dy + 1.2, mz], rot, length, y: dy + 1.2 });
+      }
+      // Stitch a connector rail from this last-before-gate post directly to
+      // the gate post so there is no walk-through gap on either flank.
+      if (nextInGate) {
+        const gx = x > 0 ? GATE.postX : -GATE.postX;
+        const gz = r; // gate posts sit at z = fence radius
+        const mx = (x + gx) / 2;
+        const mz = (z + gz) / 2;
+        const dy = data.sampleWorldY(mx, mz);
+        const dxg = gx - x;
+        const dzg = gz - z;
+        const length = Math.hypot(dxg, dzg);
+        const rot = Math.atan2(-dzg, dxg);
+        rails.push({ pos: [mx, dy + 0.78, mz], rot, length, y: dy + 0.78 });
+        rails.push({ pos: [mx, dy + 1.2, mz], rot, length, y: dy + 1.2 });
+      }
       if (!nextInGate) {
         const x2 = Math.cos(nextA) * r;
         const z2 = Math.sin(nextA) * r;
