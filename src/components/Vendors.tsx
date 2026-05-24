@@ -5,7 +5,6 @@ import { computeHutSlots } from "@/game/villageLayout";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
 import { playerPos } from "@/game/inputStore";
 import { vendorProximity } from "@/game/inventory";
-import { Sign } from "./Sign";
 
 type Vendor = {
   url: string;
@@ -89,12 +88,6 @@ export function Vendors({ data }: { data: TerrainData }) {
               <meshBasicMaterial color={"#ffd86b"} transparent opacity={0.45} depthWrite={false} toneMapped={false} />
             </mesh>
           </group>
-          {/* Shop sign next to each vendor, slightly offset to the right. */}
-          <Sign
-            position={[v.pos[0] + Math.cos(v.rotY) * 0.9, v.pos[1], v.pos[2] - Math.sin(v.rotY) * 0.9]}
-            rotationY={v.rotY}
-            label={v.label}
-          />
         </group>
       ))}
     </group>
