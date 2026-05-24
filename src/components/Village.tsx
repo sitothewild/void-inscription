@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Group, Mesh } from "three";
 import { CuboidCollider, RigidBody, type RapierRigidBody } from "@react-three/rapier";
@@ -8,28 +8,38 @@ import type { TerrainData } from "@/hooks/useProceduralTerrain";
 import { health, useHealth, type HealthId } from "@/game/health";
 import { hitTargets } from "@/game/hitTargets";
 import { WorldHealthBar } from "./WorldHealthBar";
+import { GltfProp } from "./GltfProp";
+import { Sign } from "./Sign";
 
-function Hut({ position, rotation }: { position: [number, number, number]; rotation: number }) {
+/** Suburban house GLBs cycled per slot for variety. */
+const HOUSE_URLS = [
+  "/models/houses/House.glb",
+  "/models/houses/House-7VSVwAg2T3.glb",
+  "/models/houses/Two_story_house.glb",
+  "/models/houses/Two_story_house-9N6ROCbmO1.glb",
+  "/models/houses/Two_story_house-QsF9E0PqyN.glb",
+  "/models/houses/Two_story_house-hmXhiLDf8D.glb",
+  "/models/houses/Two_story_house-htvFgnVP4d.glb",
+  "/models/houses/Two_story_house-sGgL4Nt7I7.glb",
+];
+
+function Hut({
+  position,
+  rotation,
+  url,
+}: {
+  position: [number, number, number];
+  rotation: number;
+  url: string;
+}) {
   return (
     <RigidBody type="fixed" colliders={false} position={position} rotation={[0, rotation, 0]}>
-      {/* Single tight collider matching the wall box — keeps players from
-          bumping the invisible roof overhang or door plane. */}
-      <CuboidCollider args={[1.2, 0.9, 1.0]} position={[0, 0.9, 0]} friction={1.2} />
-      {/* Base log walls */}
-      <mesh castShadow receiveShadow position={[0, 0.9, 0]}>
-        <boxGeometry args={[2.4, 1.8, 2.0]} />
-        <meshStandardMaterial color={"#6b4a2b"} roughness={0.9} />
-      </mesh>
-      {/* Thatched roof */}
-      <mesh castShadow position={[0, 2.2, 0]} rotation={[0, Math.PI / 4, 0]}>
-        <coneGeometry args={[1.9, 1.4, 4]} />
-        <meshStandardMaterial color={"#8a5a2a"} roughness={1} />
-      </mesh>
-      {/* Door */}
-      <mesh position={[0, 0.6, 1.01]}>
-        <planeGeometry args={[0.7, 1.2]} />
-        <meshStandardMaterial color={"#2a1a0e"} />
-      </mesh>
+      {/* Tight collider covers the suburban house footprint. The visual GLB
+          is loaded inside a Suspense; the collider stays put while it streams. */}
+      <CuboidCollider args={[1.6, 1.4, 1.6]} position={[0, 1.4, 0]} friction={1.2} />
+      <Suspense fallback={null}>
+        <GltfProp url={url} scale={1.6} />
+      </Suspense>
     </RigidBody>
   );
 }
@@ -41,45 +51,33 @@ const GATE = {
   doorHalf: 2.0,
 };
 
-function FencePost({
-  position,
-  scale = 1,
-}: {
-  position: [number, number, number];
-  scale?: number;
-}) {
-  return (
-    <RigidBody type="fixed" colliders="cuboid" position={position}>
-      <mesh castShadow position={[0, (scale - 1) * 0.55, 0]}>
-        <boxGeometry args={[0.2, 1.1 * scale, 0.2]} />
-        <meshStandardMaterial color={"#5a3a20"} roughness={1} />
-      </mesh>
-    </RigidBody>
-  );
-}
+/**
+ * Modular wooden fence segment (Wood_Frame build set). Provides its own thin
+ * cuboid collider so players still can't walk through the prop. The visual
+ * mesh is loaded asynchronously inside Suspense.
+ */
+const FENCE_URL = "/models/fences/Wood_Fence_1.glb";
+/** Approximate segment width of one fence GLB. Used to space modules. */
+export const FENCE_SEGMENT_LEN = 1.8;
 
-function FenceRail({
+function FenceSegment({
   position,
   rotation,
-  length,
-  y,
 }: {
   position: [number, number, number];
   rotation: number;
-  length: number;
-  y: number;
 }) {
   return (
     <RigidBody
       type="fixed"
-      colliders="cuboid"
-      position={[position[0], y, position[2]]}
+      colliders={false}
+      position={position}
       rotation={[0, rotation, 0]}
     >
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[length, 0.16, 0.16]} />
-        <meshStandardMaterial color={"#6f4726"} roughness={1} />
-      </mesh>
+      <CuboidCollider args={[FENCE_SEGMENT_LEN / 2, 0.7, 0.08]} position={[0, 0.7, 0]} />
+      <Suspense fallback={null}>
+        <GltfProp url={FENCE_URL} scale={1.1} />
+      </Suspense>
     </RigidBody>
   );
 }
@@ -176,8 +174,14 @@ function Gate({
 
   return (
     <group>
+      {/* Sturdy posts on either side of the gate opening (visual + collider). */}
       {posts.map((p, i) => (
-        <FencePost key={i} position={p} scale={1.9} />
+        <RigidBody key={i} type="fixed" colliders="cuboid" position={p}>
+          <mesh castShadow>
+            <boxGeometry args={[0.28, 2.1, 0.28]} />
+            <meshStandardMaterial color={"#3a2a18"} roughness={1} />
+          </mesh>
+        </RigidBody>
       ))}
       {/* Arch beam */}
       <RigidBody
@@ -360,101 +364,36 @@ export function Village({ data }: { data: TerrainData }) {
     }));
   }, [baseY]);
 
+  // Modern modular fence: drop a continuous ring of GLB segments around the
+  // village radius, skipping each gate's clearance arc. Each segment sits on
+  // the terrain and faces tangent to the circle.
   const fence = useMemo(() => {
-    const posts: Array<[number, number, number]> = [];
-    const rails: Array<{ pos: [number, number, number]; rot: number; length: number; y: number }> =
-      [];
     const r = 15;
-    const n = 40; // ~2.35m post spacing — readable, not picket-dense
-    // Gate arc must match the actual door clearance (POST_X = 4 at radius 15
-    // → half-angle = asin(4.4/15) ≈ 0.30 rad ≈ 0.094π).
-    const gateHalf = Math.PI * 0.1;
+    const circumference = Math.PI * 2 * r;
+    const n = Math.max(24, Math.round(circumference / FENCE_SEGMENT_LEN));
     const TAU = Math.PI * 2;
     const norm = (a: number) => ((a % TAU) + TAU) % TAU;
     const gates = VILLAGE_GATE_ANGLES.map(norm);
+    // Gate clearance must match Gate's POST_X (4m) at radius r=15
+    // → half-angle ≈ asin(4.4/15) ≈ 0.30 rad.
+    const gateHalf = Math.PI * 0.11;
     const inAnyGate = (a: number) =>
       gates.some((g) => {
         const d = Math.abs(((norm(a) - g + Math.PI) % TAU) - Math.PI);
         return d < gateHalf;
       });
-    const nearestGateAngle = (a: number) => {
-      let best = gates[0];
-      let bestD = Infinity;
-      for (const g of gates) {
-        const d = Math.abs(((norm(a) - g + Math.PI) % TAU) - Math.PI);
-        if (d < bestD) {
-          bestD = d;
-          best = g;
-        }
-      }
-      return best;
-    };
-    const nearGatePostFor = (x: number, z: number, gateAngle: number) => {
-      const gcx = Math.cos(gateAngle) * r;
-      const gcz = Math.sin(gateAngle) * r;
-      const tx = -Math.sin(gateAngle);
-      const tz = Math.cos(gateAngle);
-      const pAx = gcx + tx * GATE.postX;
-      const pAz = gcz + tz * GATE.postX;
-      const pBx = gcx - tx * GATE.postX;
-      const pBz = gcz - tz * GATE.postX;
-      const dA = (x - pAx) ** 2 + (z - pAz) ** 2;
-      const dB = (x - pBx) ** 2 + (z - pBz) ** 2;
-      return dA < dB ? { gx: pAx, gz: pAz } : { gx: pBx, gz: pBz };
-    };
+    const segments: Array<{ pos: [number, number, number]; rot: number }> = [];
     for (let i = 0; i < n; i++) {
       const a = (i / n) * TAU;
-      const nextA = ((i + 1) / n) * TAU;
-      const prevA = ((i - 1 + n) / n) * TAU;
+      if (inAnyGate(a)) continue;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
-      const inGate = inAnyGate(a);
-      const nextInGate = inAnyGate(nextA);
-      const prevInGate = inAnyGate(prevA);
-      if (inGate) continue;
-      const y = data.sampleWorldY(x, z) + 0.55;
-      posts.push([x, y, z]);
-      if (prevInGate) {
-        const ga = nearestGateAngle(prevA);
-        const { gx, gz } = nearGatePostFor(x, z, ga);
-        const mx = (x + gx) / 2;
-        const mz = (z + gz) / 2;
-        const dy = data.sampleWorldY(mx, mz);
-        const dxg = x - gx;
-        const dzg = z - gz;
-        const length = Math.hypot(dxg, dzg);
-        const rot = Math.atan2(-dzg, dxg);
-        rails.push({ pos: [mx, dy + 0.78, mz], rot, length, y: dy + 0.78 });
-        rails.push({ pos: [mx, dy + 1.2, mz], rot, length, y: dy + 1.2 });
-      }
-      if (nextInGate) {
-        const ga = nearestGateAngle(nextA);
-        const { gx, gz } = nearGatePostFor(x, z, ga);
-        const mx = (x + gx) / 2;
-        const mz = (z + gz) / 2;
-        const dy = data.sampleWorldY(mx, mz);
-        const dxg = gx - x;
-        const dzg = gz - z;
-        const length = Math.hypot(dxg, dzg);
-        const rot = Math.atan2(-dzg, dxg);
-        rails.push({ pos: [mx, dy + 0.78, mz], rot, length, y: dy + 0.78 });
-        rails.push({ pos: [mx, dy + 1.2, mz], rot, length, y: dy + 1.2 });
-      }
-      if (!nextInGate) {
-        const x2 = Math.cos(nextA) * r;
-        const z2 = Math.sin(nextA) * r;
-        const mx = (x + x2) / 2;
-        const mz = (z + z2) / 2;
-        const dy = data.sampleWorldY(mx, mz);
-        const dx = x2 - x;
-        const dz = z2 - z;
-        const length = Math.hypot(dx, dz);
-        const rot = Math.atan2(-dz, dx);
-        rails.push({ pos: [mx, dy + 0.78, mz], rot, length, y: dy + 0.78 });
-        rails.push({ pos: [mx, dy + 1.2, mz], rot, length, y: dy + 1.2 });
-      }
+      const y = data.sampleWorldY(x, z);
+      // Segment's local +X faces along the fence (tangent direction).
+      const rot = Math.atan2(-Math.cos(a), Math.sin(a));
+      segments.push({ pos: [x, y, z], rot });
     }
-    return { posts, rails, radius: r };
+    return { segments, radius: r };
   }, [data]);
 
   // Two watchtowers per gate, flanking each gate just inside the fence.
@@ -485,19 +424,38 @@ export function Village({ data }: { data: TerrainData }) {
     return out;
   }, [data]);
 
+  // Signs: one welcome sign just outside each gate.
+  const gateSigns = useMemo(() => {
+    const fenceR = 15;
+    const OUT = 3.6;
+    return VILLAGE_GATE_ANGLES.map((angle) => {
+      const x = Math.cos(angle) * (fenceR + OUT);
+      const z = Math.sin(angle) * (fenceR + OUT);
+      const y = data.sampleWorldY(x, z);
+      // Face into the village (toward origin).
+      const rot = Math.atan2(-x, -z);
+      return { pos: [x, y, z] as [number, number, number], rot };
+    });
+  }, [data]);
+
   return (
     <group>
       {huts.map((h, i) => (
-        <Hut key={i} position={h.pos} rotation={h.rot} />
+        <Hut key={i} position={h.pos} rotation={h.rot} url={HOUSE_URLS[i % HOUSE_URLS.length]} />
       ))}
-      {fence.posts.map((p, i) => (
-        <FencePost key={i} position={p} />
-      ))}
-      {fence.rails.map((r, i) => (
-        <FenceRail key={i} position={r.pos} rotation={r.rot} length={r.length} y={r.y} />
+      {fence.segments.map((s, i) => (
+        <FenceSegment key={i} position={s.pos} rotation={s.rot} />
       ))}
       {VILLAGE_GATE_ANGLES.map((angle, i) => (
         <Gate key={i} data={data} radius={fence.radius} angle={angle} index={i} />
+      ))}
+      {gateSigns.map((s, i) => (
+        <Sign
+          key={`sign-${i}`}
+          position={s.pos}
+          rotationY={s.rot}
+          label={["East Gate", "South Gate", "West Gate", "North Gate"][i] ?? "Village"}
+        />
       ))}
       {towers.map((t, i) => (
         <WatchTower key={i} position={t.pos} rotation={t.rot} />

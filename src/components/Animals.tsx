@@ -27,18 +27,28 @@ type AnimalKind = {
 };
 
 const KINDS: AnimalKind[] = [
-  { url: "/models/animals/deer.glb", scale: 1, speed: 1.6, hMin: 0.25, hMax: 0.55, count: 5 },
-  { url: "/models/animals/fox.glb", scale: 0.9, speed: 2.2, hMin: 0.2, hMax: 0.5, count: 4 },
-  { url: "/models/animals/rabbit.glb", scale: 0.7, speed: 2.8, hMin: 0.2, hMax: 0.45, count: 6 },
-  { url: "/models/animals/sheep.glb", scale: 0.9, speed: 1.2, hMin: 0.2, hMax: 0.4, count: 4 },
-  { url: "/models/animals/bear.glb", scale: 1.1, speed: 1.2, hMin: 0.45, hMax: 0.75, count: 2 },
+  // New animated pack (Kevin Iglesias / Quaternius animal pack) — all rigged
+  // with idle/walk/run/eat clips. CharacterModel picks the matching clip.
+  { url: "/models/animals/Deer.glb",        scale: 0.9, speed: 1.8, hMin: 0.25, hMax: 0.55, count: 4 },
+  { url: "/models/animals/Stag.glb",        scale: 1.0, speed: 1.9, hMin: 0.25, hMax: 0.60, count: 2 },
+  { url: "/models/animals/Fox.glb",         scale: 0.7, speed: 2.4, hMin: 0.20, hMax: 0.55, count: 3 },
+  { url: "/models/animals/Wolf.glb",        scale: 0.9, speed: 2.6, hMin: 0.35, hMax: 0.70, count: 2 },
+  { url: "/models/animals/Cow.glb",         scale: 1.0, speed: 1.0, hMin: 0.20, hMax: 0.40, count: 3 },
+  { url: "/models/animals/Bull.glb",        scale: 1.1, speed: 1.4, hMin: 0.20, hMax: 0.40, count: 1 },
+  { url: "/models/animals/Horse.glb",       scale: 1.1, speed: 2.2, hMin: 0.20, hMax: 0.50, count: 2 },
+  { url: "/models/animals/White_Horse.glb", scale: 1.1, speed: 2.2, hMin: 0.20, hMax: 0.50, count: 1 },
+  { url: "/models/animals/Alpaca.glb",      scale: 0.9, speed: 1.4, hMin: 0.25, hMax: 0.55, count: 2 },
+  { url: "/models/animals/Husky.glb",       scale: 0.8, speed: 2.4, hMin: 0.20, hMax: 0.60, count: 2 },
+  { url: "/models/animals/Shiba_Inu.glb",   scale: 0.7, speed: 2.6, hMin: 0.20, hMax: 0.55, count: 2 },
+  // Legacy small wildlife (still in /public)
+  { url: "/models/animals/rabbit.glb",      scale: 0.6, speed: 3.0, hMin: 0.20, hMax: 0.45, count: 4 },
   {
     url: "/models/animals/bird.glb",
     scale: 0.6,
     speed: 4,
     hMin: 0,
     hMax: 1,
-    count: 6,
+    count: 5,
     yOffset: 8,
     flying: true,
   },
