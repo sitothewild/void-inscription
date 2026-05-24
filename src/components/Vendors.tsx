@@ -15,9 +15,10 @@ export function Vendors({ data }: { data: TerrainData }) {
 
   const vendors = useMemo<Vendor[]>(() => {
     const ring: Array<{ url: string; label: string; angle: number; radius: number }> = [
-      { url: "/models/characters/cowboy.glb", label: "Trader", angle: 0.2, radius: 4 },
-      { url: "/models/characters/female-fighter.glb", label: "Captain", angle: 2.1, radius: 4.2 },
-      { url: "/models/characters/male-fighter.glb", label: "Blacksmith", angle: 4.0, radius: 4 },
+      { url: "/models/characters/men/Farmer.glb", label: "Trader", angle: 0.2, radius: 4 },
+      { url: "/models/characters/men/King.glb", label: "Captain", angle: 2.1, radius: 4.2 },
+      { url: "/models/characters/men/Worker.glb", label: "Blacksmith", angle: 4.0, radius: 4 },
+      { url: "/models/characters/men/Hoodie_Character.glb", label: "Scout", angle: 5.5, radius: 4 },
     ];
     return ring.map((v) => {
       const x = Math.cos(v.angle) * v.radius;

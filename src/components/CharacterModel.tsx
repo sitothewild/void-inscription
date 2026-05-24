@@ -4,6 +4,8 @@ import { useFrame } from "@react-three/fiber";
 import { Box3, Group, Vector3 } from "three";
 import { SkeletonUtils } from "three-stdlib";
 
+export type CharState = "idle" | "walk" | "run";
+
 type Props = {
   url: string;
   scale?: number;
@@ -15,6 +17,8 @@ type Props = {
   moving?: boolean;
   /** Optional per-frame getter for moving state (avoids re-renders). */
   getMoving?: () => boolean;
+  /** Per-frame getter for high-level locomotion state. Drives clip cross-fade. */
+  getState?: () => CharState;
   /** Procedural anim speed multiplier. */
   rate?: number;
 };
@@ -23,21 +27,25 @@ type Props = {
  * Loads a GLB and plays an animation. Clones the scene so multiple instances
  * of the same model can coexist with independent skeletons.
  */
-export function CharacterModel({ url, scale = 1, animation, yOffset = 0, moving = false, getMoving, rate = 1 }: Props) {
+export function CharacterModel({ url, scale = 1, animation, yOffset = 0, moving = false, getMoving, getState, rate = 1 }: Props) {
   const gltf = useGLTF(url);
   const cloned = useMemo(() => SkeletonUtils.clone(gltf.scene), [gltf.scene]);
   const autoScale = useMemo(() => {
     const box = new Box3().setFromObject(cloned);
     const size = new Vector3();
     box.getSize(size);
-    // Some RPG-pack GLBs import in centimeters, making the body nearly invisible.
-    return size.y > 0 && size.y < 0.5 ? 1.8 / size.y : 1;
+    // Some packs (Quaternius / Modular Men) export in cm-ish units. Normalise to ~1.8 m tall.
+    if (size.y <= 0) return 1;
+    if (size.y < 0.5) return 1.8 / size.y;
+    if (size.y > 3) return 1.8 / size.y;
+    return 1;
   }, [cloned]);
   const groupRef = useRef<Group>(null);
   const animRef = useRef<Group>(null);
   const seed = useMemo(() => Math.random() * Math.PI * 2, []);
   const { actions, names } = useAnimations(gltf.animations, groupRef);
   const hasClip = names.length > 0;
+  const currentName = useRef<string | null>(null);
 
   useEffect(() => {
     cloned.traverse((o) => {
@@ -49,23 +57,50 @@ export function CharacterModel({ url, scale = 1, animation, yOffset = 0, moving 
     });
   }, [cloned]);
 
-  useEffect(() => {
-    if (!names.length) return;
-    let pick = names[0];
-    if (animation) {
-      const lower = animation.toLowerCase();
-      const match = names.find((n) => n.toLowerCase().includes(lower));
-      if (match) pick = match;
+  const pickClip = (keywords: string[]): string | null => {
+    for (const kw of keywords) {
+      const m = names.find((n) => n.toLowerCase().includes(kw));
+      if (m) return m;
     }
+    return null;
+  };
+
+  // Initial clip if no state driver supplied.
+  useEffect(() => {
+    if (!names.length || getState) return;
+    const lower = (animation ?? "idle").toLowerCase();
+    const pick = names.find((n) => n.toLowerCase().includes(lower)) ?? names[0];
     const action = actions[pick];
     action?.reset().fadeIn(0.2).play();
+    currentName.current = pick;
     return () => {
       action?.fadeOut(0.2);
     };
-  }, [actions, names, animation]);
+  }, [actions, names, animation, getState]);
+
+  const playClip = (target: string | null) => {
+    if (!target || target === currentName.current) return;
+    const prev = currentName.current ? actions[currentName.current] : null;
+    const next = actions[target];
+    if (!next) return;
+    prev?.fadeOut(0.18);
+    next.reset().fadeIn(0.18).play();
+    currentName.current = target;
+  };
 
   // Procedural fallback: bob & sway when the GLB has no animation clips.
   useFrame((state) => {
+    // State-driven clip selection
+    if (hasClip && getState) {
+      const s = getState();
+      const target =
+        s === "run"
+          ? pickClip(["run", "sprint", "jog"]) ?? pickClip(["walk"]) ?? names[0]
+          : s === "walk"
+            ? pickClip(["walk"]) ?? pickClip(["run"]) ?? names[0]
+            : pickClip(["idle_neutral", "idle"]) ?? names[0];
+      playClip(target);
+    }
     if (hasClip) return;
     const g = animRef.current;
     if (!g) return;
@@ -93,10 +128,11 @@ export function CharacterModel({ url, scale = 1, animation, yOffset = 0, moving 
   );
 }
 
-useGLTF.preload("/models/characters/warrior.glb");
-useGLTF.preload("/models/characters/cowboy.glb");
-useGLTF.preload("/models/characters/female-fighter.glb");
-useGLTF.preload("/models/characters/male-fighter.glb");
+useGLTF.preload("/models/characters/men/Adventurer.glb");
+useGLTF.preload("/models/characters/men/King.glb");
+useGLTF.preload("/models/characters/men/Farmer.glb");
+useGLTF.preload("/models/characters/men/Worker.glb");
+useGLTF.preload("/models/characters/men/Hoodie_Character.glb");
 useGLTF.preload("/models/animals/fox.glb");
 useGLTF.preload("/models/animals/deer.glb");
 useGLTF.preload("/models/animals/rabbit.glb");
