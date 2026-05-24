@@ -1,6 +1,6 @@
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Color, DoubleSide, ShaderMaterial } from "three";
+import { Color, DoubleSide, ShaderMaterial, Vector2 } from "three";
 
 type Props = {
   position: [number, number, number];
@@ -23,7 +23,7 @@ export function Lake({ position, radius }: Props) {
           uShallow: { value: new Color("#2c8aa6") },
           uFoam: { value: new Color("#e8f4ff") },
           uR: { value: radius },
-          uCenter: { value: [position[0], position[2]] as [number, number] },
+          uCenter: { value: new Vector2(position[0], position[2]) },
         },
         vertexShader: /* glsl */ `
           uniform float uTime;
