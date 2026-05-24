@@ -1,7 +1,7 @@
 import { useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Sky } from "@react-three/drei";
-import { Color, DirectionalLight, Fog, Mesh, ShaderMaterial, Vector3 } from "three";
+import { AmbientLight, Color, DirectionalLight, Fog, Mesh, ShaderMaterial, Vector3 } from "three";
 import { computeSkyEnv, tickTime, time } from "@/game/time";
 
 type Props = {
@@ -19,7 +19,7 @@ export function SkyEnvironment({ fogNear = 60, fogFar = 140 }: Props) {
   const scene = useThree((s) => s.scene);
   const sunDirRef = useRef<DirectionalLight>(null);
   const moonDirRef = useRef<DirectionalLight>(null);
-  const ambientRef = useRef<{ intensity: number; color: Color } | null>(null);
+  const ambientRef = useRef<AmbientLight>(null);
   const moonMeshRef = useRef<Mesh>(null);
   const moonGlowRef = useRef<Mesh>(null);
   // Drei's <Sky> exposes itself as a mesh; we mutate its material uniforms each frame.
@@ -94,16 +94,7 @@ export function SkyEnvironment({ fogNear = 60, fogFar = 140 }: Props) {
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       <Sky ref={skyRef as any} distance={450000} sunPosition={[40, 50, 20]} turbidity={4} rayleigh={1.2} />
 
-      <ambientLight
-        ref={(o) => {
-          ambientRef.current = o
-            ? ({ intensity: o.intensity, color: o.color } as { intensity: number; color: Color })
-            : null;
-          // Re-bind so per-frame mutations hit the same object.
-          if (o) ambientRef.current = o as unknown as { intensity: number; color: Color };
-        }}
-        intensity={0.4}
-      />
+      <ambientLight ref={ambientRef} intensity={0.4} />
 
       <directionalLight
         ref={sunDirRef}
