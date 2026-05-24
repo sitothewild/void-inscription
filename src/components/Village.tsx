@@ -9,7 +9,6 @@ import { health, useHealth, type HealthId } from "@/game/health";
 import { hitTargets } from "@/game/hitTargets";
 import { WorldHealthBar } from "./WorldHealthBar";
 import { GltfProp } from "./GltfProp";
-import { Sign } from "./Sign";
 
 /** Suburban house GLBs cycled per slot for variety. */
 const HOUSE_URLS = [
@@ -374,9 +373,10 @@ export function Village({ data }: { data: TerrainData }) {
     const TAU = Math.PI * 2;
     const norm = (a: number) => ((a % TAU) + TAU) % TAU;
     const gates = VILLAGE_GATE_ANGLES.map(norm);
-    // Gate clearance must match Gate's POST_X (4m) at radius r=15
-    // → half-angle ≈ asin(4.4/15) ≈ 0.30 rad.
-    const gateHalf = Math.PI * 0.11;
+    // Gate clearance matches the actual angular extent of the gate posts
+    // (POST_X off the fence circle). Tight margin so the fence butts up
+    // against each gate and the ring reads as a closed circle.
+    const gateHalf = Math.atan2(GATE.postX, r) + 0.02;
     const inAnyGate = (a: number) =>
       gates.some((g) => {
         const d = Math.abs(((norm(a) - g + Math.PI) % TAU) - Math.PI);
@@ -448,14 +448,6 @@ export function Village({ data }: { data: TerrainData }) {
       ))}
       {VILLAGE_GATE_ANGLES.map((angle, i) => (
         <Gate key={i} data={data} radius={fence.radius} angle={angle} index={i} />
-      ))}
-      {gateSigns.map((s, i) => (
-        <Sign
-          key={`sign-${i}`}
-          position={s.pos}
-          rotationY={s.rot}
-          label={["East Gate", "South Gate", "West Gate", "North Gate"][i] ?? "Village"}
-        />
       ))}
       {towers.map((t, i) => (
         <WatchTower key={i} position={t.pos} rotation={t.rot} />
