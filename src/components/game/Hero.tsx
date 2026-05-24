@@ -230,7 +230,7 @@ export function Hero() {
           <meshStandardMaterial color="#e8c69a" />
         </mesh>
         {/* Hand-held weapon, pivots from grip */}
-        <group ref={weaponRef} position={[0, -0.5, 0]}>
+        <group ref={weaponRef} position={[0, -0.5, 0.05]} rotation={[-0.55, 0, 0]}>
           {/* SWORD */}
           <group name="sword">
             <mesh castShadow position={[0, 0.4, 0]}>
