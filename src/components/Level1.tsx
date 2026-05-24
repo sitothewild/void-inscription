@@ -24,7 +24,9 @@ type Props = {
 
 export function Level1({ spawn, onEnterPortal }: Props) {
   // Bigger world: 200m across, more detail, taller peaks
-  const terrain = useProceduralTerrain(42, 200, 200, 18, 14);
+  // villageRadius extends ~8m past the fence (r=15) so the approach to
+  // every gate stays flat enough to walk/ride out comfortably.
+  const terrain = useProceduralTerrain(42, 200, 200, 18, 23);
   const playerRef = useRef<RapierRigidBody | null>(null);
 
   const portals = useMemo(() => {
