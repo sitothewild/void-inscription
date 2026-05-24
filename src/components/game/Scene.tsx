@@ -21,6 +21,7 @@ import { WindField } from "./WindField";
 import { WindParticles } from "./WindParticles";
 import { SkyDome } from "./SkyDome";
 import { CameraFade } from "./CameraFade";
+import { PostFX } from "./PostFX";
 
 function World() {
   const resources = useGame((s) => s.resources);
@@ -76,6 +77,7 @@ export function Scene() {
         <WindField />
         <WindParticles />
         <GameLoop />
+        <PostFX />
       </Suspense>
     </Canvas>
   );
