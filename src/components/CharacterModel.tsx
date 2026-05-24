@@ -124,6 +124,7 @@ export function CharacterModel({ url, scale = 1, animation, yOffset = 0, moving 
 }
 
 useGLTF.preload("/models/characters/men/Adventurer.glb");
+useGLTF.preload("/models/characters/men/HumanM_KI.glb");
 useGLTF.preload("/models/characters/men/King.glb");
 useGLTF.preload("/models/characters/men/Farmer.glb");
 useGLTF.preload("/models/characters/men/Worker.glb");
