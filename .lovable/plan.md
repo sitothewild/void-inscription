@@ -1,128 +1,61 @@
-# Milestone 3 — Gated Village, Vendors & Tiered Weapons
 
-A walled village in the center protects the Seed of Yggdrasil. Vikings spend resources at vendors to upgrade gear across three tiers, where each tier unlocks a passive **Link Ability** that synergizes with the others.
+# ToM × BOTW Terrain & Physics Rebuild
 
----
+A staged rebuild. Each stage leaves the game playable so we can verify before moving on.
 
-## 1. The Village
+## Stage 1 — Modular slab terrain
 
-A hexagonal palisade around the Seed at world origin.
+Replace the cylinder-plateau system with a deterministic grid of square slab tiles at integer Y layers (0, 1, 2). Tiles include flat slabs, ramp slabs, and edge fillers. Procedurally generated from the world seed, but built from a small kit so cliffs stay crisp.
 
-```text
-          ╔══ Gate ══╗
-       ╔══╝          ╚══╗
-       ║   [Smith]       ║
-       ║                 ║
-   Gate    [SEED]   Gate
-       ║                 ║
-       ║   [Shaman]      ║
-       ╚══╗          ╔══╝
-          ╚══ Gate ══╝
-```
+New / changed:
+- `src/game/terrain.ts` — rewrite. Generate a `Tile[]` grid: `{ gx, gz, layer, kind: 'slab' | 'ramp', rampDir? }`. Keep deterministic mulberry32 seeding. Export new `heightAt`, `isOnRamp`, `isValidResourceSpot` that read the tile grid instead of cylinder math.
+- `src/game/constants.ts` — add `TILE_SIZE` (e.g. 4), `LAYER_HEIGHT` (1.4), `GRID_RADIUS` (in tiles).
+- `src/components/game/Plateaus.tsx` → rename to `Terrain.tsx`. Render each tile as a `<RigidBody type="fixed">` with a cuboid (slab) or trimesh (ramp) collider. One instanced mesh per tile kind for perf.
+- `src/components/game/Ground.tsx` — keep the ocean plane + sand ring; remove the green disc (slabs cover it now).
 
-**Structure**
-- Radius ~6 units, 6 wall segments, 4 cardinal gates.
-- Walls: invisible collider + GLTF palisade mesh. Block enemies and players.
-- Gates: open during **day**, auto-close **30 s before night**, reopen at dawn. HUD warning when closing.
-- Gate HP (200): enemies attack gates first if closed; a broken gate stays open until a vendor repairs it at dawn (costs wood).
-- Seed sits on a small altar inside; only damageable when enemies are *inside* the walls.
+## Stage 2 — Triplanar toon material
 
-**Suggested tweaks**
-- Add **1 watchtower** the player can climb for a damage boost (+25% attack range while standing on it).
-- Pile of **stockpile crates** inside — visual indicator of stored resources (purely cosmetic, scales with inventory).
+A single shader material reused by every slab. Top-facing normals sample a stylized grass color ramp; side-facing normals sample a rocky cliff ramp. Adds a cel-shaded step + Fresnel rim light for the BOTW silhouette pop.
 
----
+New:
+- `src/components/game/materials/TriplanarToon.ts` — `ShaderMaterial` factory. Uniforms: `uGrassA/uGrassB`, `uCliffA/uCliffB`, `uRimColor`, `uSunDir`, `uTime` (for subtle grass shimmer). Vertex shader passes world position + world normal. Fragment uses `abs(normal)` weights for triplanar blend, quantized N·L for toon banding, and Fresnel for rim.
+- Applied in `Terrain.tsx` for all slab/ramp meshes. Cliff sides automatically look rocky without UV stretching.
 
-## 2. Vendors
+## Stage 3 — Grass on flats only
 
-Two NPCs spawn inside the village at fixed spots. Interact by walking into the radius and pressing **E** (or the new touch "Interact" button) to open a shop panel.
+- `src/components/game/WindField.tsx` — scatter from the new tile grid: pick random points on top faces of slabs (skip ramps, skip the village footprint). Reads `tiles` instead of `plateaus`. Same instanced wind shader.
 
-### Smith — Weapons & armor
-Sells gear in three tiers, gated by **Day reached** and **resource cost**.
+## Stage 4 — Rapier physics
 
-### Shaman — Consumables & utility
-- **Healing Mead** — restore 30 HP. Cost: 2 herb.
-- **Seed Ward** — +50 temporary Seed HP for one night. Cost: 5 stone.
-- **Wolf Totem** — summons 1 friendly wolf for the night. Cost: 1 fang + 3 wood.
+Install `@react-three/rapier` and migrate movement.
 
-Vendor shops are **closed at night** — plan ahead.
+- `bun add @react-three/rapier`
+- `src/components/game/Scene.tsx` — wrap world in `<Physics>` (gravity y = -22).
+- `src/components/game/Terrain.tsx` — each slab/ramp gets a fixed `RigidBody` with the right collider (cuboid for slabs, trimesh for ramps).
+- `src/components/game/Hero.tsx` — replace manual `position.set` with a `<RigidBody type="kinematicPosition">` driven by a `KinematicCharacterController` (slope limit ~46°, offset 0.05, autostep 0.4, snap-to-ground 0.5). Input vector from existing keyboard/touch store; controller handles cliff walls and smooth ramp climbs natively.
+- `src/components/game/Enemy.tsx` — same kinematic controller pattern, simpler steering toward target.
+- `src/game/store.ts` — keep `heroX/heroZ` but write them from the hero's RigidBody translation each frame so the rest of the game (camera, AI, vendors) keeps working unchanged.
 
----
+## Stage 5 — Camera & upper-slab fade
 
-## 3. Tiered Weapons with Link Abilities
+- `src/components/game/IsoCamera.tsx` — keep ortho iso angle; tighten the lerp now that movement is physics-driven so gravity arcs read smoothly.
+- New `src/components/game/CameraFade.tsx` — raycasts from the camera toward the hero each frame; any slab tile intersected has its material `uniforms.uFade` driven toward 0.15 (dithered alpha) so upper layers don't block the view when the hero walks under them.
 
-Each weapon has **3 tiers**. Owning a tier grants its **Link Ability** passively, and link abilities **stack** across weapons — that's the build identity.
+## Stage 6 — Cleanup / parity
 
-| Weapon | T1 | T2 | T3 | Link Ability (active at T1+) |
-|---|---|---|---|---|
-| **Sword** | Iron Sword — 1.5× dmg | Steel Sword — 2× dmg, +cleave | Yggdrasil Blade — 3× dmg, lifesteal 10% | **Edge** — basic attacks have wider arc |
-| **Bow** | Hunter Bow — ranged attacks | Longbow — 2× range, pierce 1 | Stormcaller Bow — chain-lightning between 3 enemies | **Sight** — reveals enemies through walls within 12u |
-| **Hammer** | Stone Hammer — slow, knockback | War Hammer — AOE on hit | Mjolnir — AOE + stun (1.5 s) | **Foundation** — gates take 50% less damage |
+- Remove obsolete cylinder-plateau code paths.
+- Update `src/components/game/Tree.tsx`, `Rock.tsx`, `Herb.tsx`, `Vendor.tsx`, `Village.tsx`, `Seed.tsx`, `Enemy.tsx`, `RemotePlayer.tsx` to call the new `heightAt(x, z, tiles)` (signature change is contained — same name, new arg type).
+- `src/game/world.ts` — `generateWorld(seed, tiles)` uses the new `isValidResourceSpot`.
 
-### Link synergy examples
-- **Sword + Hammer (T1+T1)** → "Berserker": +15% move speed at night.
-- **Bow + Hammer (T2+T2)** → "Warden": passive +1 wood per resource node, walls auto-repair 1 HP/s during day.
-- **All three at T3** → "Allfather": night length shortened 20%, +1 max HP regen/s. (End-game goal.)
+## Technical notes
 
-This turns weapon purchases into **build decisions**, not just numerical upgrades.
+- **Tile kit**: only 2 mesh types are needed (slab box, ramp wedge). All variation comes from layer/rotation. Cliff faces appear automatically wherever a higher slab abuts a lower one — no extra meshes.
+- **Determinism**: same seed → same tile layout, so multiplayer rooms stay in sync.
+- **Performance**: one instanced mesh per (kind × layer) pair (~6 draw calls for terrain), one Rapier fixed body per tile (~80–150 bodies, well within budget).
+- **Risk**: Rapier migration touches hero + enemies + multiplayer position sync. Mitigation: keep `heroX/heroZ` in the zustand store as the source of truth that other systems read; only the *writer* changes from manual math to RigidBody translation.
 
-### Tier gating
-| Tier | Unlocked from | Resource cost example (Sword) |
-|---|---|---|
-| T1 | Day 1 | 5 wood, 3 stone |
-| T2 | Day 3 (and own T1) | 10 stone, 2 fang |
-| T3 | Day 5 (and own T2) | 1 mythril (rare drop), 5 fang, 15 stone |
+## Out of scope (ask later if wanted)
 
-**Mythril** is a new rare resource that drops from a **mini-boss enemy** that spawns once on night 3 — gives players a clear T3 path.
-
----
-
-## 4. New Resources
-
-Add to existing wood/stone:
-- **Herb** — picked from green bushes (peaceful, day-only respawn).
-- **Fang** — drops from killed enemies (25% chance).
-- **Mythril** — guaranteed drop from mini-boss on night 3.
-
----
-
-## 5. Multiplayer rules
-
-All host-authoritative (consistent with M2):
-- Gate state (open/closed, HP) lives in snapshot.
-- Vendor purchases: client sends `{ type: "purchase", vendor, itemId }` action; host validates resources, applies to **buying player's** inventory, broadcasts.
-- Weapon ownership is **per-player** (each Viking buys their own tier).
-- Link Abilities are **per-player passive** — affect that player only, except "Warden" wall regen which is global.
-
----
-
-## 6. Suggested UX additions
-
-- **Vendor HUD panel** — bottom-center modal with tier rows, lock icons for unmet requirements, hover tooltip explaining the Link Ability.
-- **Owned-tiers HUD strip** — small icons under the HP bar showing which weapons/tiers you own and active link abilities.
-- **Gate countdown** — red ring on minimap-style indicator showing time until gates close.
-- **Build preview tooltip** — when hovering a weapon to buy, show which Link Abilities would activate if purchased.
-
----
-
-## 7. Recommended cuts / open questions
-
-Things to decide before building:
-1. **Mini-boss on night 3** — yes, or random rare spawn instead?
-2. **Should vendors be killable by enemies?** (Recommend no — village is a safe core.)
-3. **Should T3 require defeating mini-boss vs. just owning T2?** (I'd vote: kill required, otherwise mythril is just a currency.)
-4. **Should we replace the current single "sword" inventory flag** with the new tier system, or run them in parallel during transition? (Recommend full migration — cleaner store.)
-
----
-
-## 8. Build order (if approved)
-
-1. Village geometry + gate open/close logic + collisions.
-2. Resource expansion (herb, fang, mythril) + bush + mini-boss spawn.
-3. Weapon tier data + store rewrite (`inventory.weapons: { sword: 0|1|2|3, bow: ..., hammer: ... }`).
-4. Vendor NPCs + shop UI + purchase action through `dispatchAction`.
-5. Link Ability passive resolver (recomputed when weapons change).
-6. HUD: vendor panel, owned-tier strip, gate countdown.
-7. Multiplayer wiring: snapshot fields for gates + per-player weapons.
-
-Answer the open questions in §7 and I'll execute the build.
+- New GLTF terrain assets (Option A from your message) — Stage 1 uses primitive boxes/wedges with the triplanar shader, which gives the same look without external assets.
+- Combat / AI overhaul.
+- Networked physics — Rapier runs client-side only; multiplayer keeps its current position-broadcast model.
