@@ -84,9 +84,12 @@ function FenceRail({
 function Gate({ data, radius }: { data: TerrainData; radius: number }) {
   const z = radius;
   const y = data.sampleWorldY(0, z);
+  // Gate clearance: ~8m wide opening, two 3m doors with a small center seam.
+  const POST_X = 4.0;
+  const DOOR_HALF = 1.5; // door width = 3.0
   const posts: Array<[number, number, number]> = [
-    [-2.6, data.sampleWorldY(-2.6, z) + 0.75, z],
-    [2.6, data.sampleWorldY(2.6, z) + 0.75, z],
+    [-POST_X, data.sampleWorldY(-POST_X, z) + 0.9, z],
+    [POST_X, data.sampleWorldY(POST_X, z) + 0.9, z],
   ];
   const [open, setOpen] = useState(false);
   const leftRef = useRef<RapierRigidBody>(null);
@@ -94,7 +97,7 @@ function Gate({ data, radius }: { data: TerrainData; radius: number }) {
   const ringRef = useRef<Mesh>(null);
   const promptRef = useRef<Group>(null);
   const openProgress = useRef(0);
-  const INTERACT_R = 4;
+  const INTERACT_R = 5;
 
   useEffect(() => {
     return onEdge("action", () => {
@@ -136,33 +139,41 @@ function Gate({ data, radius }: { data: TerrainData; radius: number }) {
   return (
     <group>
       {posts.map((p, i) => (
-        <FencePost key={i} position={p} scale={1.6} />
+        <FencePost key={i} position={p} scale={1.9} />
       ))}
-      <RigidBody type="fixed" colliders="cuboid" position={[0, y + 2.05, z]}>
+      {/* Arch beam */}
+      <RigidBody type="fixed" colliders="cuboid" position={[0, y + 2.45, z]}>
         <mesh castShadow receiveShadow>
-          <boxGeometry args={[5.8, 0.28, 0.32]} />
+          <boxGeometry args={[POST_X * 2 + 0.8, 0.32, 0.36]} />
           <meshStandardMaterial color={"#5a3a20"} roughness={1} />
         </mesh>
       </RigidBody>
+      {/* Decorative crossbeam */}
+      <mesh castShadow position={[0, y + 2.85, z]}>
+        <boxGeometry args={[POST_X * 2 - 0.4, 0.18, 0.24]} />
+        <meshStandardMaterial color={"#6b4a2b"} roughness={1} />
+      </mesh>
+      {/* Left door, hinged at -POST_X */}
       <RigidBody
         ref={leftRef}
         type="kinematicPosition"
         colliders="cuboid"
-        position={[-2.5, y + 0.65, z]}
+        position={[-POST_X, y + 0.85, z]}
       >
-        <mesh castShadow receiveShadow position={[1.1, 0, 0]}>
-          <boxGeometry args={[2.0, 1.6, 0.16]} />
+        <mesh castShadow receiveShadow position={[DOOR_HALF, 0, 0]}>
+          <boxGeometry args={[DOOR_HALF * 2, 1.9, 0.18]} />
           <meshStandardMaterial color={"#7a4d2a"} roughness={1} />
         </mesh>
       </RigidBody>
+      {/* Right door, hinged at +POST_X */}
       <RigidBody
         ref={rightRef}
         type="kinematicPosition"
         colliders="cuboid"
-        position={[2.5, y + 0.65, z]}
+        position={[POST_X, y + 0.85, z]}
       >
-        <mesh castShadow receiveShadow position={[-1.1, 0, 0]}>
-          <boxGeometry args={[2.0, 1.6, 0.16]} />
+        <mesh castShadow receiveShadow position={[-DOOR_HALF, 0, 0]}>
+          <boxGeometry args={[DOOR_HALF * 2, 1.9, 0.18]} />
           <meshStandardMaterial color={"#7a4d2a"} roughness={1} />
         </mesh>
       </RigidBody>
@@ -206,10 +217,16 @@ export function Village({ data }: { data: TerrainData }) {
   const huts = useMemo(() => {
     const rng = mulberry32(99);
     const arr: Array<{ pos: [number, number, number]; rot: number }> = [];
-    const radius = 9;
-    for (let i = 0; i < 7; i++) {
-      const a = (i / 7) * Math.PI * 2 + rng() * 0.2;
-      const r = radius + rng() * 0.8;
+    const radius = 10;
+    // Reserve the wedge in front of the gate (centered on +Z) so the main
+    // path stays clear. Place huts on a 5/6-circle arc with even spacing.
+    const gateGap = Math.PI * 0.34; // ~61° of arc kept empty around the gate
+    const usable = Math.PI * 2 - gateGap;
+    const count = 6;
+    const start = Math.PI / 2 + gateGap / 2; // start just past the gate wedge
+    for (let i = 0; i < count; i++) {
+      const a = start + (i / (count - 1)) * usable + (rng() - 0.5) * 0.12;
+      const r = radius + (rng() - 0.5) * 1.2;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
       arr.push({ pos: [x, baseY, z], rot: -a + Math.PI / 2 });
@@ -222,15 +239,20 @@ export function Village({ data }: { data: TerrainData }) {
     const rails: Array<{ pos: [number, number, number]; rot: number; length: number; y: number }> =
       [];
     const r = 15;
-    const n = 56;
+    const n = 40; // ~2.35m post spacing — readable, not picket-dense
+    // Gate arc must match the actual door clearance (POST_X = 4 at radius 15
+    // → half-angle = asin(4.4/15) ≈ 0.30 rad ≈ 0.094π).
+    const gateHalf = Math.PI * 0.1;
+    const gateMin = Math.PI / 2 - gateHalf;
+    const gateMax = Math.PI / 2 + gateHalf;
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
       const nextA = ((i + 1) / n) * Math.PI * 2;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
-      // Leave a gap (gate) on +Z side
-      const inGate = a > Math.PI * 0.39 && a < Math.PI * 0.61;
-      const nextInGate = nextA > Math.PI * 0.39 && nextA < Math.PI * 0.61;
+      // Leave a gap (gate) on +Z side sized to the actual gate opening.
+      const inGate = a > gateMin && a < gateMax;
+      const nextInGate = nextA > gateMin && nextA < gateMax;
       if (inGate) continue;
       const y = data.sampleWorldY(x, z) + 0.55;
       posts.push([x, y, z]);
@@ -263,7 +285,8 @@ export function Village({ data }: { data: TerrainData }) {
         <FenceRail key={i} position={r.pos} rotation={r.rot} length={r.length} y={r.y} />
       ))}
       <Gate data={data} radius={fence.radius} />
-      <Campfire position={[3, baseY, 2]} />
+      {/* Campfire on the back side of the pylon, off the gate path */}
+      <Campfire position={[0, baseY, -3.5]} />
     </group>
   );
 }
