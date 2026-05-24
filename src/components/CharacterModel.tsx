@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useGLTF, useAnimations } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { Box3, Group, Vector3 } from "three";
+import { Group } from "three";
 import { SkeletonUtils } from "three-stdlib";
 
 export type CharState = "idle" | "walk" | "run";
@@ -30,16 +30,11 @@ type Props = {
 export function CharacterModel({ url, scale = 1, animation, yOffset = 0, moving = false, getMoving, getState, rate = 1 }: Props) {
   const gltf = useGLTF(url);
   const cloned = useMemo(() => SkeletonUtils.clone(gltf.scene), [gltf.scene]);
-  const autoScale = useMemo(() => {
-    const box = new Box3().setFromObject(cloned);
-    const size = new Vector3();
-    box.getSize(size);
-    // Some packs (Quaternius / Modular Men) export in cm-ish units. Normalise to ~1.8 m tall.
-    if (size.y <= 0) return 1;
-    if (size.y < 0.5) return 1.8 / size.y;
-    if (size.y > 3) return 1.8 / size.y;
-    return 1;
-  }, [cloned]);
+  // NOTE: Do NOT try to auto-normalise scale via Box3.setFromObject for
+  // skinned characters. Quaternius/Modular Men export POSITION attributes in
+  // bind space (~1cm extents) and rely on root-bone transforms to render at
+  // human scale. Box3 reads the rest pose and reports the tiny extent, which
+  // would cause us to scale the model ~200×. Trust the prop scale instead.
   const groupRef = useRef<Group>(null);
   const animRef = useRef<Group>(null);
   const seed = useMemo(() => Math.random() * Math.PI * 2, []);
@@ -120,7 +115,7 @@ export function CharacterModel({ url, scale = 1, animation, yOffset = 0, moving 
   });
 
   return (
-    <group ref={groupRef} position={[0, yOffset, 0]} scale={scale * autoScale}>
+    <group ref={groupRef} position={[0, yOffset, 0]} scale={scale}>
       <group ref={animRef}>
         <primitive object={cloned} />
       </group>
