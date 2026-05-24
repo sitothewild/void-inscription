@@ -61,7 +61,7 @@ const KINDS: AnimalKind[] = [
   { url: "/models/animals/rabbit.glb",      scale: 0.30, speed: 3.0, hMin: 0.20, hMax: 0.50, count: 5, habitat: "wild" },
   {
     url: "/models/animals/bird.glb",
-    scale: 0.6,
+    scale: 0.35,
     speed: 4,
     hMin: 0,
     hMax: 1,
