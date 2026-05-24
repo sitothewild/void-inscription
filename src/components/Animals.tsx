@@ -46,19 +46,19 @@ const WILD_MIN = 55;
 
 const KINDS: AnimalKind[] = [
   // ── Village pets (inside the fence) ──────────────────────────────────────
-  { url: "/models/animals/Husky.glb",       scale: 0.8, speed: 2.4, hMin: 0,    hMax: 1,    count: 2, habitat: "village" },
-  { url: "/models/animals/Shiba_Inu.glb",   scale: 0.7, speed: 2.6, hMin: 0,    hMax: 1,    count: 2, habitat: "village" },
+  { url: "/models/animals/Husky.glb",       scale: 0.45, speed: 2.4, hMin: 0,    hMax: 1,    count: 2, habitat: "village" },
+  { url: "/models/animals/Shiba_Inu.glb",   scale: 0.40, speed: 2.6, hMin: 0,    hMax: 1,    count: 2, habitat: "village" },
   // ── Pasture (farm) animals — just outside the village ───────────────────
-  { url: "/models/animals/Horse.glb",       scale: 1.1, speed: 2.0, hMin: 0.18, hMax: 0.55, count: 2, habitat: "pasture" },
-  { url: "/models/animals/White_Horse.glb", scale: 1.1, speed: 2.0, hMin: 0.18, hMax: 0.55, count: 1, habitat: "pasture" },
-  { url: "/models/animals/Donkey.glb",      scale: 0.9, speed: 1.6, hMin: 0.18, hMax: 0.55, count: 2, habitat: "pasture" },
-  { url: "/models/animals/Bull.glb",        scale: 1.1, speed: 1.4, hMin: 0.18, hMax: 0.50, count: 1, habitat: "pasture" },
+  { url: "/models/animals/Horse.glb",       scale: 0.65, speed: 2.0, hMin: 0.18, hMax: 0.55, count: 2, habitat: "pasture" },
+  { url: "/models/animals/White_Horse.glb", scale: 0.65, speed: 2.0, hMin: 0.18, hMax: 0.55, count: 1, habitat: "pasture" },
+  { url: "/models/animals/Donkey.glb",      scale: 0.55, speed: 1.6, hMin: 0.18, hMax: 0.55, count: 2, habitat: "pasture" },
+  { url: "/models/animals/Bull.glb",        scale: 0.70, speed: 1.4, hMin: 0.18, hMax: 0.50, count: 1, habitat: "pasture" },
   // ── Wild animals — must stay clear of any village ───────────────────────
-  { url: "/models/animals/Deer.glb",        scale: 0.9, speed: 1.8, hMin: 0.25, hMax: 0.55, count: 5, habitat: "wild" },
-  { url: "/models/animals/Stag.glb",        scale: 1.0, speed: 1.9, hMin: 0.25, hMax: 0.60, count: 3, habitat: "wild" },
-  { url: "/models/animals/Fox.glb",         scale: 0.7, speed: 2.4, hMin: 0.20, hMax: 0.55, count: 4, habitat: "wild" },
-  { url: "/models/animals/Wolf.glb",        scale: 0.9, speed: 2.6, hMin: 0.30, hMax: 0.70, count: 3, habitat: "wild" },
-  { url: "/models/animals/rabbit.glb",      scale: 0.6, speed: 3.0, hMin: 0.20, hMax: 0.50, count: 5, habitat: "wild" },
+  { url: "/models/animals/Deer.glb",        scale: 0.50, speed: 1.8, hMin: 0.25, hMax: 0.55, count: 5, habitat: "wild" },
+  { url: "/models/animals/Stag.glb",        scale: 0.55, speed: 1.9, hMin: 0.25, hMax: 0.60, count: 3, habitat: "wild" },
+  { url: "/models/animals/Fox.glb",         scale: 0.38, speed: 2.4, hMin: 0.20, hMax: 0.55, count: 4, habitat: "wild" },
+  { url: "/models/animals/Wolf.glb",        scale: 0.50, speed: 2.6, hMin: 0.30, hMax: 0.70, count: 3, habitat: "wild" },
+  { url: "/models/animals/rabbit.glb",      scale: 0.30, speed: 3.0, hMin: 0.20, hMax: 0.50, count: 5, habitat: "wild" },
   {
     url: "/models/animals/bird.glb",
     scale: 0.6,
