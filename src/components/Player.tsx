@@ -13,11 +13,13 @@ import { CharacterModel, type CharState } from "./CharacterModel";
 import { fireArrow } from "./Projectiles";
 import { mobileAxis, onEdge, playerPos, playerState, runState } from "@/game/inputStore";
 import { setPlayerChunkPosition } from "@/game/chunkManager";
+import type { TerrainData } from "@/hooks/useProceduralTerrain";
 
 export type Controls = "forward" | "back" | "left" | "right" | "jump" | "sprint";
 
 type Props = {
   spawn: [number, number, number];
+  terrain?: TerrainData;
   /** Camera follow mode. */
   camera: "iso" | "third";
   onRef?: (body: RapierRigidBody | null) => void;
@@ -34,7 +36,7 @@ const CHARGE_MAX = { speed: 55, maxDistance: 38 };
 /** Time (ms) to reach full charge. */
 const FULL_CHARGE_MS = 1200;
 
-export function Player({ spawn, camera, onRef }: Props) {
+export function Player({ spawn, terrain, camera, onRef }: Props) {
   const bodyRef = useRef<RapierRigidBody | null>(null);
   const colliderRef = useRef<RapierCollider | null>(null);
   const visualRef = useRef<Group>(null);
@@ -246,12 +248,16 @@ export function Player({ spawn, camera, onRef }: Props) {
       const corrected = controller.computedMovement();
       const groundedNow = controller.computedGrounded() || grounded;
       const next = b.translation();
+      const targetX = next.x + corrected.x;
+      const targetZ = next.z + corrected.z;
+      const terrainFloor = terrain ? terrain.sampleWorldY(targetX, targetZ) + 1.02 : -Infinity;
+      const targetY = Math.max(next.y + corrected.y, terrainFloor);
       b.setNextKinematicTranslation({
-        x: next.x + corrected.x,
-        y: next.y + corrected.y,
-        z: next.z + corrected.z,
+        x: targetX,
+        y: targetY,
+        z: targetZ,
       });
-      if (groundedNow && verticalVelocity.current < 0) verticalVelocity.current = 0;
+      if ((groundedNow || targetY === terrainFloor) && verticalVelocity.current < 0) verticalVelocity.current = 0;
     } else {
       b.setLinvel({ x: dx, y: vel.y, z: dz }, true);
     }
