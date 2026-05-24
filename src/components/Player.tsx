@@ -11,7 +11,7 @@ import {
 import { Group, Mesh, Plane, Raycaster, Vector2, Vector3 } from "three";
 import { CharacterModel, type CharAction, type CharState } from "./CharacterModel";
 import { fireArrow } from "./Projectiles";
-import { mobileAxis, onEdge, playerPos, playerState, runState } from "@/game/inputStore";
+import { mobileAxis, onEdge, playerPos, playerState } from "@/game/inputStore";
 import { setPlayerChunkPosition } from "@/game/chunkManager";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
 
