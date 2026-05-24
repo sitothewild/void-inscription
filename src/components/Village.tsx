@@ -3,18 +3,8 @@ import { useFrame } from "@react-three/fiber";
 import { Group, Mesh } from "three";
 import { CuboidCollider, RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import { onEdge, playerPos } from "@/game/inputStore";
+import { computeHutSlots } from "@/game/villageLayout";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
-
-function mulberry32(seed: number) {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 function Hut({ position, rotation }: { position: [number, number, number]; rotation: number }) {
   return (
@@ -225,23 +215,10 @@ export function Village({ data }: { data: TerrainData }) {
   const baseY = data.sampleWorldY(0, 0);
 
   const huts = useMemo(() => {
-    const rng = mulberry32(99);
-    const arr: Array<{ pos: [number, number, number]; rot: number }> = [];
-    const radius = 10;
-    // Reserve the wedge in front of the gate (centered on +Z) so the main
-    // path stays clear. Place huts on a 5/6-circle arc with even spacing.
-    const gateGap = Math.PI * 0.34; // ~61° of arc kept empty around the gate
-    const usable = Math.PI * 2 - gateGap;
-    const count = 6;
-    const start = Math.PI / 2 + gateGap / 2; // start just past the gate wedge
-    for (let i = 0; i < count; i++) {
-      const a = start + (i / (count - 1)) * usable + (rng() - 0.5) * 0.12;
-      const r = radius + (rng() - 0.5) * 1.2;
-      const x = Math.cos(a) * r;
-      const z = Math.sin(a) * r;
-      arr.push({ pos: [x, baseY, z], rot: -a + Math.PI / 2 });
-    }
-    return arr;
+    return computeHutSlots().map((s) => ({
+      pos: [s.x, baseY, s.z] as [number, number, number],
+      rot: s.rotY,
+    }));
   }, [baseY]);
 
   const fence = useMemo(() => {
