@@ -155,7 +155,6 @@ export function Hero() {
     }
 
     rb.current.setNextKinematicTranslation({ x: nx, y: ny, z: nz });
-    if (ctrlRef.current.computedGrounded()) vy.current = 0;
 
     let facing = state.heroFacing;
     const inputLen = Math.hypot(dx, dz);
