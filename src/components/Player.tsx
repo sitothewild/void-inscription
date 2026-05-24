@@ -91,6 +91,12 @@ export function Player({ spawn, camera, onRef }: Props) {
   useFrame(() => {
     const b = bodyRef.current;
     if (!b) return;
+    // Respawn if somehow we fall under the world
+    const tt = b.translation();
+    if (tt.y < -20) {
+      b.setTranslation({ x: spawn[0], y: spawn[1] + 4, z: spawn[2] }, true);
+      b.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    }
     const { forward, back, left, right, jump } = get();
     const vel = b.linvel();
 
