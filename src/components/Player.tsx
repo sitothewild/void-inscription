@@ -11,7 +11,7 @@ import {
 import { Group, Vector3 } from "three";
 import { CharacterModel } from "./CharacterModel";
 import { fireArrow } from "./Projectiles";
-import { mobileAxis, onEdge } from "@/game/inputStore";
+import { mobileAxis, onEdge, playerPos, playerState } from "@/game/inputStore";
 import { setPlayerChunkPosition } from "@/game/chunkManager";
 
 export type Controls = "forward" | "back" | "left" | "right" | "jump";
@@ -40,6 +40,7 @@ export function Player({ spawn, camera, onRef }: Props) {
   const lastShot = useRef(0);
   const verticalVelocity = useRef(0);
   const bow = useGLTF("/models/items/bow.glb");
+  const movingRef = useRef(false);
 
   useEffect(() => {
     const controller = world.createCharacterController(0.05);
@@ -110,6 +111,9 @@ export function Player({ spawn, camera, onRef }: Props) {
     // Respawn if somehow we fall under the world
     const tt = b.translation();
     setPlayerChunkPosition(tt.x, tt.z);
+    playerPos.x = tt.x;
+    playerPos.y = tt.y;
+    playerPos.z = tt.z;
     if (tt.y < -20) {
       b.setTranslation({ x: spawn[0], y: spawn[1] + 4, z: spawn[2] }, true);
       b.setLinvel({ x: 0, y: 0, z: 0 }, true);
@@ -128,6 +132,8 @@ export function Player({ spawn, camera, onRef }: Props) {
     dx += mobileAxis.x;
     dz += mobileAxis.y;
     const len = Math.hypot(dx, dz);
+    movingRef.current = len > 0;
+    playerState.moving = len > 0;
     if (len > 0) {
       const mag = Math.min(1, len);
       dx = (dx / len) * SPEED * mag;
@@ -200,7 +206,12 @@ export function Player({ spawn, camera, onRef }: Props) {
     >
       <CapsuleCollider ref={colliderRef} args={[0.55, 0.42]} friction={1.4} restitution={0} />
       <group ref={visualRef} position={[0, -1, 0]}>
-        <CharacterModel url="/models/characters/warrior.glb" scale={1.05} animation="idle" />
+        <CharacterModel
+          url="/models/characters/warrior.glb"
+          scale={1.05}
+          animation="idle"
+          moving={movingRef.current}
+        />
         {/* Bow in hand */}
         <group position={[0.45, 1.1, 0.1]} rotation={[0, Math.PI / 2, Math.PI / 2]}>
           <Clone object={bow.scene} scale={0.5} castShadow />
