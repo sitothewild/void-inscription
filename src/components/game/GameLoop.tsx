@@ -14,6 +14,7 @@ import {
 } from "@/game/constants";
 import { mulberry32 } from "@/game/rng";
 import { applyAction, dispatchAction, hostActionQueue } from "@/game/multiplayer";
+import { touchInput } from "@/game/touchInput";
 
 // Keyboard state (module-level so handlers + frame share)
 const keys = new Set<string>();
@@ -83,6 +84,10 @@ export function GameLoop() {
     if (keys.has("s") || keys.has("arrowdown")) dz += 1;
     if (keys.has("a") || keys.has("arrowleft")) dx -= 1;
     if (keys.has("d") || keys.has("arrowright")) dx += 1;
+    if (touchInput.active) {
+      dx += touchInput.dx;
+      dz += touchInput.dz;
+    }
     const len = Math.hypot(dx, dz);
     let nx = s.heroX;
     let nz = s.heroZ;
@@ -98,16 +103,24 @@ export function GameLoop() {
         nz = Math.sin(ang) * (ISLAND_RADIUS - 1);
       }
     }
-    // Facing toward mouse
-    const fx = mouseWorld.current.x - nx;
-    const fz = mouseWorld.current.z - nz;
-    const facing =
-      Math.hypot(fx, fz) > 0.01 ? Math.atan2(fx, fz) : s.heroFacing;
+    // Facing: prefer mouse aim; on touch, face movement direction
+    let facing = s.heroFacing;
+    if (touchInput.active && len > 0) {
+      facing = Math.atan2(dx, dz);
+    } else {
+      const fx = mouseWorld.current.x - nx;
+      const fz = mouseWorld.current.z - nz;
+      if (Math.hypot(fx, fz) > 0.01) facing = Math.atan2(fx, fz);
+    }
     s.setHero(nx, nz, facing);
 
     // ---- Hero attack cooldown is always local for responsive UX
     const cd = Math.max(0, s.heroAttackCd - dt);
     s.setHeroAttackCd(cd);
+    if (touchInput.attack) {
+      touchInput.attack = false;
+      attackRequested.current = true;
+    }
     if (attackRequested.current) {
       attackRequested.current = false;
       if (cd <= 0) {
