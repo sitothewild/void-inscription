@@ -9,7 +9,7 @@ import {
   type RapierRigidBody,
 } from "@react-three/rapier";
 import { Group, Mesh, Plane, Raycaster, Vector2, Vector3 } from "three";
-import { CharacterModel, type CharState } from "./CharacterModel";
+import { CharacterModel, type CharAction, type CharState } from "./CharacterModel";
 import { fireArrow } from "./Projectiles";
 import { mobileAxis, onEdge, playerPos, playerState, runState } from "@/game/inputStore";
 import { setPlayerChunkPosition } from "@/game/chunkManager";
@@ -59,6 +59,8 @@ export function Player({ spawn, terrain, camera, onRef }: Props) {
   const movingRef = useRef(false);
   const speedRef = useRef(0);
   const stateRef = useRef<CharState>("idle");
+  const actionRef = useRef<CharAction>(null);
+  const queuedAction = useRef<CharAction>(null);
   const chargeStart = useRef<number | null>(null);
   const chargeRef = useRef(0);
   const beamRef = useRef<Mesh>(null);
@@ -104,6 +106,7 @@ export function Player({ spawn, terrain, camera, onRef }: Props) {
     const dir: [number, number, number] = [Math.sin(f), 0.18, Math.cos(f)];
     const pos: [number, number, number] = [t.x + dir[0] * 0.8, t.y + 0.4, t.z + dir[2] * 0.8];
     fireArrow({ pos, dir, ...QUICK_SHOT });
+    queuedAction.current = "shoot";
   };
 
   /** Release the currently-held charge shot (0..1). */
@@ -129,6 +132,7 @@ export function Player({ spawn, terrain, camera, onRef }: Props) {
     const maxDistance = CHARGE_MIN.maxDistance + (CHARGE_MAX.maxDistance - CHARGE_MIN.maxDistance) * charge;
     lastShot.current = performance.now();
     fireArrow({ pos, dir, speed, maxDistance, power: charge });
+    queuedAction.current = "shoot";
   };
 
   // Mouse buttons: LMB = quick shot, RMB = hold-to-charge power shot.
@@ -164,6 +168,7 @@ export function Player({ spawn, terrain, camera, onRef }: Props) {
       const b = bodyRef.current;
       if (!b) return;
       verticalVelocity.current = JUMP_IMPULSE;
+      queuedAction.current = "jump";
     });
     return () => {
       window.removeEventListener("mousedown", onDown);
@@ -229,8 +234,13 @@ export function Player({ spawn, terrain, camera, onRef }: Props) {
     } else {
       speedRef.current = 0;
     }
-    stateRef.current =
-      speedRef.current < 0.1 ? "idle" : sprinting ? "run" : "walk";
+    const aiming = chargeStart.current !== null;
+    if (aiming) {
+      stateRef.current = speedRef.current < 0.1 ? "aim" : "run_aim";
+    } else {
+      stateRef.current =
+        speedRef.current < 0.1 ? "idle" : sprinting ? "run" : "walk";
+    }
 
     // Grounded check: cast ray downward
     const t = b.translation();
@@ -263,6 +273,7 @@ export function Player({ spawn, terrain, camera, onRef }: Props) {
     }
     if (jump && grounded) {
       verticalVelocity.current = JUMP_IMPULSE;
+      queuedAction.current = "jump";
     }
 
     // Face mouse cursor when aiming (bow is always equipped). Falls back to
@@ -347,6 +358,11 @@ export function Player({ spawn, terrain, camera, onRef }: Props) {
           url="/models/characters/men/Adventurer.glb"
           scale={1}
           getState={() => stateRef.current}
+          getAction={() => {
+            const a = queuedAction.current;
+            queuedAction.current = null;
+            return a;
+          }}
         />
         {/* Bow in hand */}
         <group position={[0.45, 1.1, 0.1]} rotation={[0, Math.PI / 2, Math.PI / 2]}>
