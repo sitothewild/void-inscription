@@ -154,6 +154,21 @@ export function GameLoop() {
     const cd = Math.max(0, s.heroAttackCd - dt);
     s.setHeroAttackCd(cd);
 
+    // ---- Compute nearest interactable resource for highlight ----
+    {
+      const range = HERO_ATTACK_RANGE * rangeMultiplier(s.inventory.weapons) + 0.5;
+      let bestId: string | null = null;
+      let bestD = range;
+      for (const r of s.resources) {
+        const d = Math.hypot(r.x - nx, r.z - nz);
+        if (d < bestD) {
+          bestD = d;
+          bestId = r.id;
+        }
+      }
+      if (bestId !== s.nearestInteractId) s.setNearestInteractId(bestId);
+    }
+
     // Interact (E or touch)
     if (touchInput.interact) {
       touchInput.interact = false;

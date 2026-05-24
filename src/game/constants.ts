@@ -1,6 +1,6 @@
 export const WORLD_SIZE = 64;
 export const TILE = 1;
-export const ISLAND_RADIUS = 28;
+export const ISLAND_RADIUS = 44;
 
 export const DAY_DURATION = 180; // seconds
 export const NIGHT_DURATION = 120;

@@ -2,6 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Group } from "three";
 import { useGame } from "@/game/store";
+import { heightAt } from "@/game/terrain";
 
 /**
  * Compute a 0..1 phase for the current attack animation, plus
@@ -20,29 +21,36 @@ function readFx() {
 // Animation curves per weapon + combo step. Each returns local rotations
 // for the right arm + the weapon mesh. Step 0/1/2 are the three combos.
 function swingCurve(weapon: string, step: number, t: number) {
-  // ease in then out
-  const e = Math.sin(Math.min(1, t) * Math.PI); // 0 → 1 → 0
-  const swing = e;
+  // Hero faces local +Z. The right arm hangs at local -Y.
+  // Three.js rotation.x sign:  positive X rotation maps -Y → -Z (backward, windup).
+  //                            negative X rotation maps -Y → +Z (FORWARD, the strike).
+  // So windup uses POSITIVE armX; the forward chop uses NEGATIVE armX with greater magnitude.
+  const wind = t < 0.25 ? t / 0.25 : 1 - (t - 0.25) / 0.75;
+  const strike = t < 0.25 ? 0 : Math.sin(((t - 0.25) / 0.75) * Math.PI);
   if (weapon === "sword") {
-    if (step === 0) return { armX: -1.2 * swing, armZ: -0.6 * swing, weaponZ: -1.4 * swing }; // right-to-left slash
-    if (step === 1) return { armX: -1.0 * swing, armZ: 0.7 * swing, weaponZ: 1.3 * swing }; // left-to-right slash
-    return { armX: -2.0 * swing, armZ: 0, weaponZ: 0 }; // overhead
+    if (step === 0)
+      return { armX: 0.6 * wind - 2.0 * strike, armZ: 0.3 * strike, weaponZ: 0 };
+    if (step === 1)
+      return { armX: 0.6 * wind - 2.0 * strike, armZ: -0.3 * strike, weaponZ: 0 };
+    return { armX: 0.9 * wind - 2.4 * strike, armZ: 0, weaponZ: 0 }; // overhead chop
   }
   if (weapon === "hammer") {
-    if (step === 0) return { armX: -0.9 * swing, armZ: -0.8 * swing, weaponZ: -1.5 * swing }; // side swing
-    if (step === 1) return { armX: -2.2 * swing, armZ: 0, weaponZ: 0 }; // overhead
-    return { armX: -2.6 * swing, armZ: 0, weaponZ: 0 }; // ground slam
+    if (step === 0)
+      return { armX: 0.7 * wind - 2.2 * strike, armZ: 0.2 * strike, weaponZ: 0 };
+    if (step === 1)
+      return { armX: 0.7 * wind - 2.2 * strike, armZ: -0.2 * strike, weaponZ: 0 };
+    return { armX: 1.1 * wind - 2.6 * strike, armZ: 0, weaponZ: 0 }; // ground slam
   }
   if (weapon === "bow") {
-    // draw → release pulse
-    const draw = Math.min(1, t * 2);
-    const release = t > 0.5 ? 1 - (t - 0.5) * 2 : 0;
-    return { armX: -1.2 * draw + 0.4 * release, armZ: 0, weaponZ: 0 };
+    // Draw arm back, hold, release forward briefly.
+    const draw = Math.min(1, t * 2.5);
+    const release = t > 0.55 ? Math.sin(((t - 0.55) / 0.45) * Math.PI) : 0;
+    return { armX: 1.0 * draw - 0.6 * release, armZ: 0, weaponZ: 0 };
   }
-  // fists — quick jabs
-  if (step === 0) return { armX: -1.4 * swing, armZ: 0, weaponZ: 0 };
-  if (step === 1) return { armX: 0, armZ: -1.0 * swing, weaponZ: 0 };
-  return { armX: -1.8 * swing, armZ: 0.4 * swing, weaponZ: 0 };
+  // Fists — quick jabs forward.
+  if (step === 0) return { armX: 0.3 * wind - 1.8 * strike, armZ: 0, weaponZ: 0 };
+  if (step === 1) return { armX: 0.3 * wind - 1.8 * strike, armZ: -0.3 * strike, weaponZ: 0 };
+  return { armX: 0.5 * wind - 2.2 * strike, armZ: 0.2 * strike, weaponZ: 0 };
 }
 
 export function Hero() {
@@ -57,8 +65,9 @@ export function Hero() {
 
   useFrame((_, dt) => {
     if (!ref.current) return;
-    const { heroX, heroZ, heroFacing, inventory } = useGame.getState();
-    ref.current.position.set(heroX, 0, heroZ);
+    const { heroX, heroZ, heroFacing, inventory, plateaus } = useGame.getState();
+    const hy = heightAt(heroX, heroZ, plateaus);
+    ref.current.position.set(heroX, hy, heroZ);
     ref.current.rotation.y = heroFacing;
 
     // Walk cycle based on velocity
@@ -221,7 +230,7 @@ export function Hero() {
           <meshStandardMaterial color="#e8c69a" />
         </mesh>
         {/* Hand-held weapon, pivots from grip */}
-        <group ref={weaponRef} position={[0, -0.5, 0]}>
+        <group ref={weaponRef} position={[0, -0.5, 0.05]} rotation={[-0.55, 0, 0]}>
           {/* SWORD */}
           <group name="sword">
             <mesh castShadow position={[0, 0.4, 0]}>

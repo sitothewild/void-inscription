@@ -1,10 +1,14 @@
 import type { Enemy as EnemyT } from "@/game/store";
 import { ENEMY_MAX_HP } from "@/game/constants";
+import { useGame } from "@/game/store";
+import { heightAt } from "@/game/terrain";
 
 export function Enemy({ enemy }: { enemy: EnemyT }) {
   const ratio = Math.max(0, enemy.hp / ENEMY_MAX_HP);
+  const plateaus = useGame((s) => s.plateaus);
+  const ey = heightAt(enemy.x, enemy.z, plateaus);
   return (
-    <group position={[enemy.x, 0, enemy.z]}>
+    <group position={[enemy.x, ey, enemy.z]}>
       <mesh position={[0, 0.5, 0]} castShadow>
         <boxGeometry args={[0.55, 0.8, 0.4]} />
         <meshStandardMaterial color="#5a2a4a" />
