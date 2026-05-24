@@ -13,6 +13,7 @@ import { Animals } from "./Animals";
 import { Pylon } from "./Pylon";
 import { Projectiles } from "./Projectiles";
 import { InteractionSystem } from "./InteractionSystem";
+import { Ocean } from "./Ocean";
 import { useProceduralTerrain } from "@/hooks/useProceduralTerrain";
 import { usePortalTrigger } from "@/hooks/usePortalTrigger";
 
@@ -22,24 +23,37 @@ type Props = {
 };
 
 export function Level1({ spawn, onEnterPortal }: Props) {
-  const terrain = useProceduralTerrain(42, 100, 100, 12, 6);
+  // Bigger world: 200m across, more detail, taller peaks
+  const terrain = useProceduralTerrain(42, 200, 200, 18, 8);
   const playerRef = useRef<RapierRigidBody | null>(null);
 
   const portals = useMemo(() => {
-    const r = 42;
-    const dirs: Array<[string, number]> = [
-      ["N", 0],
-      ["NE", Math.PI / 4],
-      ["E", Math.PI / 2],
-      ["SE", (3 * Math.PI) / 4],
-      ["SW", (5 * Math.PI) / 4],
-    ];
-    return dirs.map(([id, a]) => {
-      const x = Math.sin(a) * r;
-      const z = -Math.cos(a) * r;
+    // Scatter portals across the island at varying distances/angles.
+    // Deterministic from seed; skip the village center and the very edge.
+    const out: Array<{ id: string; position: [number, number, number] }> = [];
+    let a = 0x9e3779b1;
+    const rand = () => {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const count = 10;
+    const minR = 25;
+    const maxR = 88;
+    for (let i = 0; i < count; i++) {
+      const ang = rand() * Math.PI * 2;
+      const r = minR + rand() * (maxR - minR);
+      const x = Math.sin(ang) * r;
+      const z = Math.cos(ang) * r;
       const y = terrain.sampleWorldY(x, z);
-      return { id, position: [x, y, z] as [number, number, number] };
-    });
+      // skip if underwater
+      if (y < 0.5) continue;
+      out.push({ id: `p${i}`, position: [x, y, z] });
+    }
+    return out;
   }, [terrain]);
 
   usePortalTrigger(playerRef, portals, 3, onEnterPortal);
@@ -73,10 +87,12 @@ export function Level1({ spawn, onEnterPortal }: Props) {
       </Suspense>
       <WindParticles />
 
-      {/* Ocean */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]} receiveShadow>
-        <planeGeometry args={[400, 400]} />
-        <meshStandardMaterial color={"#1e5d8a"} metalness={0.2} roughness={0.6} />
+      {/* Animated ocean with shoreline foam */}
+      <Ocean size={900} y={-0.2} shoreRadius={terrain.worldSize / 2 - 6} />
+      {/* Sand shoreline ring just below sea level, hides the seam */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]} receiveShadow>
+        <ringGeometry args={[terrain.worldSize / 2 - 12, terrain.worldSize / 2 + 4, 96]} />
+        <meshStandardMaterial color={"#e8d39a"} roughness={1} />
       </mesh>
 
       {/* Village Anchor — spinning cube + particles */}
