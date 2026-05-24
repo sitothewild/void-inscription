@@ -1,5 +1,6 @@
 import { Canvas } from "@react-three/fiber";
 import { Suspense } from "react";
+import { ACESFilmicToneMapping, SRGBColorSpace } from "three";
 import { useGame } from "@/game/store";
 import { Enemy } from "./Enemy";
 import { GameLoop } from "./GameLoop";
@@ -46,7 +47,16 @@ function World() {
 
 export function Scene() {
   return (
-    <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }}>
+    <Canvas
+      shadows
+      dpr={[1, 2]}
+      gl={{
+        antialias: true,
+        toneMapping: ACESFilmicToneMapping,
+        toneMappingExposure: 1.15,
+        outputColorSpace: SRGBColorSpace,
+      }}
+    >
       <Suspense fallback={null}>
         <IsoCamera />
         <SkyDome />
