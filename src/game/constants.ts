@@ -2,6 +2,11 @@ export const WORLD_SIZE = 64;
 export const TILE = 1;
 export const ISLAND_RADIUS = 44;
 
+// ---- Slab terrain grid ----
+export const TILE_SIZE = 4;
+export const LAYER_HEIGHT = 1.4;
+export const GRID_RADIUS = 11; // tiles from center (covers island)
+
 export const DAY_DURATION = 180; // seconds
 export const NIGHT_DURATION = 120;
 
