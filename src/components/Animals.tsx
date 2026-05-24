@@ -118,6 +118,9 @@ export function Animals({ data }: { data: TerrainData }) {
     const rng = mulberry32(7777);
     const out: Spec[] = [];
     const half = data.worldSize / 2;
+    // Wildlife stays well outside the village pad + fence so animals don't
+    // spawn pacing inside the palisade.
+    const exclusion = data.villageRadius + 6;
     let seed = 1;
     for (const k of KINDS) {
       let placed = 0;
@@ -126,7 +129,7 @@ export function Animals({ data }: { data: TerrainData }) {
         tries++;
         const x = (rng() * 2 - 1) * half * 0.85;
         const z = (rng() * 2 - 1) * half * 0.85;
-        if (Math.hypot(x, z) < 12) continue;
+        if (Math.hypot(x, z) < exclusion) continue;
         const h = data.sampleAt(x, z);
         if (!k.flying && (h < k.hMin || h > k.hMax)) continue;
         out.push({
