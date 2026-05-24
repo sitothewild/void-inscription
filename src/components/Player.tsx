@@ -358,6 +358,11 @@ export function Player({ spawn, terrain, camera, onRef }: Props) {
           url="/models/characters/men/Adventurer.glb"
           scale={1}
           getState={() => stateRef.current}
+          getAction={() => {
+            const a = queuedAction.current;
+            queuedAction.current = null;
+            return a;
+          }}
         />
         {/* Bow in hand */}
         <group position={[0.45, 1.1, 0.1]} rotation={[0, Math.PI / 2, Math.PI / 2]}>
