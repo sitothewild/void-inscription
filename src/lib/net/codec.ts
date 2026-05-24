@@ -1,4 +1,5 @@
-import type { Enemy, Resource } from "@/game/store";
+import type { Enemy } from "@/game/store";
+import type { Resource } from "@/game/world";
 
 export type RemotePlayerState = {
   x: number;
