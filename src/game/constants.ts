@@ -31,10 +31,10 @@ export const VILLAGE_RADIUS = 7; // hex circumradius
 export const GATE_HP = 200;
 export const GATE_CLOSE_WARNING = 30; // seconds before night that gates start closing
 export const GATE_DAMAGE = 6;
-// Hex corner angles for wall posts (6 segments)
-export const HEX_ANGLES = [0, 60, 120, 180, 240, 300].map((d) => (d * Math.PI) / 180);
-// Gate slots (between hex sides) — north and south
-export const GATE_ANGLES = [Math.PI / 2, -Math.PI / 2]; // facing +Z (down screen) and -Z
+// Hex corner angles for wall posts (flat-top hex: corners at N, S and 4 diagonals)
+export const HEX_ANGLES = [30, 90, 150, 210, 270, 330].map((d) => (d * Math.PI) / 180);
+// Gate slots are mid-side of the hex — east and west sides
+export const GATE_ANGLES = [0, Math.PI];
 
 // ---- Vendors ----
 export const VENDOR_INTERACT_RANGE = 2.2;

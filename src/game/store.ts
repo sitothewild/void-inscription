@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   BOSS_HP,
   DAY_DURATION,
+  GATE_ANGLES,
   GATE_HP,
   HERO_MAX_HP,
   NIGHT_DURATION,
@@ -121,10 +122,10 @@ type GameState = {
 };
 
 function freshGates(): Gate[] {
-  // Two gates: north (+Z) and south (-Z)
+  // Two gates on east/west sides of the hex
   return [
-    { id: "g-n", angle: Math.PI / 2, hp: GATE_HP, open: true, broken: false },
-    { id: "g-s", angle: -Math.PI / 2, hp: GATE_HP, open: true, broken: false },
+    { id: "g-e", angle: GATE_ANGLES[0], hp: GATE_HP, open: true, broken: false },
+    { id: "g-w", angle: GATE_ANGLES[1], hp: GATE_HP, open: true, broken: false },
   ];
 }
 

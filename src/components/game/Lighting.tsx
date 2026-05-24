@@ -5,11 +5,14 @@ export function Lighting() {
   const isDay = phase === "day";
   return (
     <>
-      <ambientLight intensity={isDay ? 0.7 : 0.25} color={isDay ? "#ffffff" : "#5566aa"} />
+      <ambientLight
+        intensity={isDay ? 0.7 : 0.55}
+        color={isDay ? "#ffffff" : "#9bb6ff"}
+      />
       <directionalLight
-        position={[20, 30, 10]}
-        intensity={isDay ? 1.1 : 0.3}
-        color={isDay ? "#fff4d6" : "#8899ff"}
+        position={isDay ? [20, 30, 10] : [-15, 28, -8]}
+        intensity={isDay ? 1.1 : 0.85}
+        color={isDay ? "#fff4d6" : "#c8d8ff"}
         castShadow
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
@@ -18,8 +21,11 @@ export function Lighting() {
         shadow-camera-top={40}
         shadow-camera-bottom={-40}
       />
-      <color attach="background" args={[isDay ? "#9ed1ff" : "#1a2244"]} />
-      <fog attach="fog" args={[isDay ? "#9ed1ff" : "#1a2244", 30, 80]} />
+      {!isDay && (
+        <hemisphereLight args={["#bcd0ff", "#1a2030", 0.5]} />
+      )}
+      <color attach="background" args={[isDay ? "#9ed1ff" : "#2b3a66"]} />
+      <fog attach="fog" args={[isDay ? "#9ed1ff" : "#2b3a66", 35, 90]} />
     </>
   );
 }
