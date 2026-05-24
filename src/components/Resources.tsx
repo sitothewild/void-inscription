@@ -1,5 +1,7 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Clone, useGLTF } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
+import { Group, Mesh, MeshStandardMaterial } from "three";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
 import { useResources, world, type Resource, type ResourceKind } from "@/game/world";
 
@@ -92,6 +94,60 @@ export function Resources({ data }: { data: TerrainData }) {
 
 function ResourceField({ url, items }: { url: string; items: Resource[] }) {
   const { scene } = useGLTF(url);
+  // Per-resource wind strength (rocks barely move, foliage sways more).
+  const isFoliage =
+    url.includes("pine") ||
+    url.includes("tree") ||
+    url.includes("bush") ||
+    url.includes("mushroom");
+  const windStrength = url.includes("rock") ? 0 : isFoliage ? 1 : 0.3;
+  const timeUniform = useRef({ value: 0 });
+  const strengthUniform = useRef({ value: windStrength });
+
+  // Patch every material in the shared scene exactly once so all clones sway.
+  useEffect(() => {
+    if (windStrength <= 0) return;
+    scene.traverse((o) => {
+      const mesh = o as Mesh;
+      if (!(mesh as unknown as { isMesh?: boolean }).isMesh) return;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      mats.forEach((mat) => {
+        const m = mat as MeshStandardMaterial & { userData: { windPatched?: boolean } };
+        if (!m || m.userData?.windPatched) return;
+        m.userData = { ...(m.userData ?? {}), windPatched: true };
+        const prev = m.onBeforeCompile;
+        m.onBeforeCompile = (shader, renderer) => {
+          prev?.(shader, renderer);
+          shader.uniforms.uTime = timeUniform.current;
+          shader.uniforms.uWind = strengthUniform.current;
+          shader.vertexShader = shader.vertexShader
+            .replace(
+              "#include <common>",
+              "#include <common>\nuniform float uTime;\nuniform float uWind;",
+            )
+            .replace(
+              "#include <begin_vertex>",
+              `vec3 transformed = vec3( position );
+               // World-space sway driven by height — trunks stay still, canopy sways.
+               vec4 wp = modelMatrix * vec4(transformed, 1.0);
+               float h = max(transformed.y, 0.0);
+               float bend = pow(h / 3.5, 1.4) * uWind;
+               float w1 = sin(uTime * 1.1 + wp.x * 0.25 + wp.z * 0.3);
+               float w2 = sin(uTime * 2.4 + wp.x * 0.55) * 0.4;
+               transformed.x += (w1 + w2) * 0.18 * bend;
+               transformed.z += (w1 * 0.7 - w2) * 0.14 * bend;
+               transformed.y -= abs(w1) * 0.04 * bend;`,
+            );
+        };
+        m.needsUpdate = true;
+      });
+    });
+  }, [scene, windStrength]);
+
+  useFrame((state) => {
+    timeUniform.current.value = state.clock.elapsedTime;
+  });
+
   return (
     <>
       {items.map((it) => (
