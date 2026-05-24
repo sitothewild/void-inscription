@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useGLTF, useAnimations } from "@react-three/drei";
-import { Group } from "three";
+import { Box3, Group, Vector3 } from "three";
 import { SkeletonUtils } from "three-stdlib";
 
 type Props = {
@@ -19,6 +19,13 @@ type Props = {
 export function CharacterModel({ url, scale = 1, animation, yOffset = 0 }: Props) {
   const gltf = useGLTF(url);
   const cloned = useMemo(() => SkeletonUtils.clone(gltf.scene), [gltf.scene]);
+  const autoScale = useMemo(() => {
+    const box = new Box3().setFromObject(cloned);
+    const size = new Vector3();
+    box.getSize(size);
+    // Some RPG-pack GLBs import in centimeters, making the body nearly invisible.
+    return size.y > 0 && size.y < 0.5 ? 1.8 / size.y : 1;
+  }, [cloned]);
   const groupRef = useRef<Group>(null);
   const { actions, names } = useAnimations(gltf.animations, groupRef);
 
@@ -48,7 +55,7 @@ export function CharacterModel({ url, scale = 1, animation, yOffset = 0 }: Props
   }, [actions, names, animation]);
 
   return (
-    <group ref={groupRef} position={[0, yOffset, 0]} scale={scale}>
+    <group ref={groupRef} position={[0, yOffset, 0]} scale={scale * autoScale}>
       <primitive object={cloned} />
     </group>
   );
