@@ -259,26 +259,54 @@ export function Village({ data }: { data: TerrainData }) {
     // Gate arc must match the actual door clearance (POST_X = 4 at radius 15
     // → half-angle = asin(4.4/15) ≈ 0.30 rad ≈ 0.094π).
     const gateHalf = Math.PI * 0.1;
-    const gateMin = Math.PI / 2 - gateHalf;
-    const gateMax = Math.PI / 2 + gateHalf;
+    const TAU = Math.PI * 2;
+    const norm = (a: number) => ((a % TAU) + TAU) % TAU;
+    const gates = VILLAGE_GATE_ANGLES.map(norm);
+    const inAnyGate = (a: number) =>
+      gates.some((g) => {
+        const d = Math.abs(((norm(a) - g + Math.PI) % TAU) - Math.PI);
+        return d < gateHalf;
+      });
+    const nearestGateAngle = (a: number) => {
+      let best = gates[0];
+      let bestD = Infinity;
+      for (const g of gates) {
+        const d = Math.abs(((norm(a) - g + Math.PI) % TAU) - Math.PI);
+        if (d < bestD) {
+          bestD = d;
+          best = g;
+        }
+      }
+      return best;
+    };
+    const nearGatePostFor = (x: number, z: number, gateAngle: number) => {
+      const gcx = Math.cos(gateAngle) * r;
+      const gcz = Math.sin(gateAngle) * r;
+      const tx = -Math.sin(gateAngle);
+      const tz = Math.cos(gateAngle);
+      const pAx = gcx + tx * GATE.postX;
+      const pAz = gcz + tz * GATE.postX;
+      const pBx = gcx - tx * GATE.postX;
+      const pBz = gcz - tz * GATE.postX;
+      const dA = (x - pAx) ** 2 + (z - pAz) ** 2;
+      const dB = (x - pBx) ** 2 + (z - pBz) ** 2;
+      return dA < dB ? { gx: pAx, gz: pAz } : { gx: pBx, gz: pBz };
+    };
     for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2;
-      const nextA = ((i + 1) / n) * Math.PI * 2;
-      const prevA = ((i - 1 + n) / n) * Math.PI * 2;
+      const a = (i / n) * TAU;
+      const nextA = ((i + 1) / n) * TAU;
+      const prevA = ((i - 1 + n) / n) * TAU;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
-      // Leave a gap (gate) on +Z side sized to the actual gate opening.
-      const inGate = a > gateMin && a < gateMax;
-      const nextInGate = nextA > gateMin && nextA < gateMax;
-      const prevInGate = prevA > gateMin && prevA < gateMax;
+      const inGate = inAnyGate(a);
+      const nextInGate = inAnyGate(nextA);
+      const prevInGate = inAnyGate(prevA);
       if (inGate) continue;
       const y = data.sampleWorldY(x, z) + 0.55;
       posts.push([x, y, z]);
-      // Stitch a connector rail from the gate post to this first-after-gate
-      // post so the left flank also closes off cleanly.
       if (prevInGate) {
-        const gx = x > 0 ? GATE.postX : -GATE.postX;
-        const gz = r;
+        const ga = nearestGateAngle(prevA);
+        const { gx, gz } = nearGatePostFor(x, z, ga);
         const mx = (x + gx) / 2;
         const mz = (z + gz) / 2;
         const dy = data.sampleWorldY(mx, mz);
@@ -289,11 +317,9 @@ export function Village({ data }: { data: TerrainData }) {
         rails.push({ pos: [mx, dy + 0.78, mz], rot, length, y: dy + 0.78 });
         rails.push({ pos: [mx, dy + 1.2, mz], rot, length, y: dy + 1.2 });
       }
-      // Stitch a connector rail from this last-before-gate post directly to
-      // the gate post so there is no walk-through gap on either flank.
       if (nextInGate) {
-        const gx = x > 0 ? GATE.postX : -GATE.postX;
-        const gz = r; // gate posts sit at z = fence radius
+        const ga = nearestGateAngle(nextA);
+        const { gx, gz } = nearGatePostFor(x, z, ga);
         const mx = (x + gx) / 2;
         const mz = (z + gz) / 2;
         const dy = data.sampleWorldY(mx, mz);
@@ -332,7 +358,9 @@ export function Village({ data }: { data: TerrainData }) {
       {fence.rails.map((r, i) => (
         <FenceRail key={i} position={r.pos} rotation={r.rot} length={r.length} y={r.y} />
       ))}
-      <Gate data={data} radius={fence.radius} />
+      {VILLAGE_GATE_ANGLES.map((angle, i) => (
+        <Gate key={i} data={data} radius={fence.radius} angle={angle} />
+      ))}
       {/* Campfire on the back side of the pylon, off the gate path */}
       <Campfire position={[0, baseY, -3.5]} />
     </group>
