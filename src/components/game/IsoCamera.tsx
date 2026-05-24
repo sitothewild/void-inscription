@@ -16,7 +16,7 @@ export function IsoCamera() {
     const hy = heightAt(heroX, heroZ, tiles);
     target.current.set(heroX + 20, 25 + hy, heroZ + 20);
     look.current.set(heroX, hy, heroZ);
-    const k = 1 - Math.exp(-dt * 8);
+    const k = 1 - Math.exp(-dt * 14);
     cam.current.position.lerp(target.current, k);
     cam.current.lookAt(look.current);
   });
