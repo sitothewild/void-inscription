@@ -29,7 +29,7 @@ type Props = {
 };
 
 /** Instanced wind-animated grass blades on plains/forest tiles. */
-export function Grass({ data, count = 6000, villageRadius = 7 }: Props) {
+export function Grass({ data, count = 6000, villageRadius = 16 }: Props) {
   const meshRef = useRef<InstancedMesh>(null!);
   const matRef = useRef<MeshStandardMaterial>(null!);
   const timeUniform = useRef({ value: 0 });
