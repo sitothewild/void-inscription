@@ -91,6 +91,12 @@ export function Player({ spawn, camera, onRef }: Props) {
   useFrame(() => {
     const b = bodyRef.current;
     if (!b) return;
+    // Respawn if somehow we fall under the world
+    const tt = b.translation();
+    if (tt.y < -20) {
+      b.setTranslation({ x: spawn[0], y: spawn[1] + 4, z: spawn[2] }, true);
+      b.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    }
     const { forward, back, left, right, jump } = get();
     const vel = b.linvel();
 
@@ -156,7 +162,7 @@ export function Player({ spawn, camera, onRef }: Props) {
       mass={1}
       linearDamping={0.5}
     >
-      <CapsuleCollider args={[0.5, 0.5]} />
+      <CapsuleCollider args={[0.5, 0.5]} friction={1.2} restitution={0} />
       <group ref={visualRef} position={[0, -1, 0]}>
         <CharacterModel url="/models/characters/warrior.glb" scale={1} animation="idle" />
         {/* Bow in hand */}
