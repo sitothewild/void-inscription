@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { createNoise2D } from "simplex-noise";
+import { biomeAt, type Biome } from "@/game/biomes";
 
 function mulberry32(seed: number) {
   let a = seed >>> 0;
@@ -26,6 +27,9 @@ export type TerrainData = {
   sampleAt: (x: number, z: number) => number;
   /** Sample world-space y at world (x, z). */
   sampleWorldY: (x: number, z: number) => number;
+  /** Sample biome at world (x, z). */
+  biomeAt: (x: number, z: number) => Biome;
+  seed: number;
 };
 
 export function useProceduralTerrain(
@@ -51,11 +55,16 @@ export function useProceduralTerrain(
         const z = (j / segments) * worldSize - half;
 
         // Fractal noise
+        const biome = biomeAt(seed, x, z);
         let h =
           noise(x * 0.025, z * 0.025) * 0.6 +
           noise2(x * 0.06, z * 0.06) * 0.3 +
-          noise3(x * 0.15, z * 0.15) * 0.1;
+          noise3(x * 0.12, z * 0.12) * 0.07;
         h = (h + 1) / 2; // 0..1
+        if (biome === "desert") h *= 0.78;
+        if (biome === "tundra") h = h * 0.84 + 0.05;
+        if (biome === "swamp") h *= 0.62;
+        if (biome === "forest") h = h * 0.95 + 0.02;
 
         // Circular island mask — falls to 0 at edge
         const d = Math.sqrt(x * x + z * z);
@@ -77,12 +86,19 @@ export function useProceduralTerrain(
     const sampleAt = (x: number, z: number) => {
       const fx = ((x + half) / worldSize) * segments;
       const fz = ((z + half) / worldSize) * segments;
-      const i = Math.max(0, Math.min(segments, Math.floor(fx)));
-      const j = Math.max(0, Math.min(segments, Math.floor(fz)));
-      return heights[j * n + i];
+      const i0 = Math.max(0, Math.min(segments, Math.floor(fx)));
+      const j0 = Math.max(0, Math.min(segments, Math.floor(fz)));
+      const i1 = Math.max(0, Math.min(segments, i0 + 1));
+      const j1 = Math.max(0, Math.min(segments, j0 + 1));
+      const tx = Math.max(0, Math.min(1, fx - i0));
+      const tz = Math.max(0, Math.min(1, fz - j0));
+      const a = heights[j0 * n + i0] * (1 - tx) + heights[j0 * n + i1] * tx;
+      const b = heights[j1 * n + i0] * (1 - tx) + heights[j1 * n + i1] * tx;
+      return a * (1 - tz) + b * tz;
     };
     const sampleWorldY = (x: number, z: number) => sampleAt(x, z) * maxHeight;
+    const sampleBiome = (x: number, z: number) => biomeAt(seed, x, z);
 
-    return { heights, size: n, worldSize, maxHeight, sampleAt, sampleWorldY };
+    return { heights, size: n, worldSize, maxHeight, sampleAt, sampleWorldY, biomeAt: sampleBiome, seed };
   }, [seed, segments, worldSize, maxHeight, villageRadius]);
 }
