@@ -12,6 +12,7 @@ import { Group, Vector3 } from "three";
 import { CharacterModel } from "./CharacterModel";
 import { fireArrow } from "./Projectiles";
 import { mobileAxis, onEdge } from "@/game/inputStore";
+import { setPlayerChunkPosition } from "@/game/chunkManager";
 
 export type Controls = "forward" | "back" | "left" | "right" | "jump";
 
@@ -112,6 +113,7 @@ export function Player({ spawn, camera, onRef }: Props) {
     if (!b) return;
     // Respawn if somehow we fall under the world
     const tt = b.translation();
+    setPlayerChunkPosition(tt.x, tt.z);
     if (tt.y < -20) {
       b.setTranslation({ x: spawn[0], y: spawn[1] + 4, z: spawn[2] }, true);
       b.setLinvel({ x: 0, y: 0, z: 0 }, true);
