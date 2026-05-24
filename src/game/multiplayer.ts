@@ -150,6 +150,7 @@ export function useMultiplayer(roomCode: string | null, name: string) {
           status: s.status,
           enemies: s.enemies,
           resources: s.resources,
+          gates: s.gates,
           players,
           inventory: s.inventory,
           seed: s.seed,
