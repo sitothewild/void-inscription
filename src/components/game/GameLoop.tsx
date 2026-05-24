@@ -142,6 +142,10 @@ export function GameLoop() {
     }
     s.setHero(nx, nz, facing);
 
+    // Attack cooldown
+    const cd = Math.max(0, s.heroAttackCd - dt);
+    s.setHeroAttackCd(cd);
+
     // Interact (E or touch)
     if (touchInput.interact) {
       touchInput.interact = false;
@@ -181,9 +185,7 @@ export function GameLoop() {
       }
     }
 
-    // Attack
-    const cd = Math.max(0, s.heroAttackCd - dt);
-    s.setHeroAttackCd(cd);
+    // Attack input
     if (touchInput.attack) {
       touchInput.attack = false;
       attackRequested.current = true;
