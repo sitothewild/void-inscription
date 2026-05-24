@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 48cc836555498344c9db4c7dd05b6672
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 244969
+  packageName: SceneNav - Smooth & Fast Scene Navigation - FREE
+  packageVersion: 2.5.0
+  assetPath: Assets/Rowlan/Tools/SceneNav/Editor/SceneMark/UIComponents/QuickNavPopupWindow.cs
+  uploadId: 866128
