@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { CharacterModel } from "./CharacterModel";
 import { computeHutSlots } from "@/game/villageLayout";
