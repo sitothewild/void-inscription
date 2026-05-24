@@ -4,6 +4,10 @@ import { RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import { Terrain } from "./Terrain";
 import { Portal } from "./Portal";
 import { Player } from "./Player";
+import { Grass } from "./Grass";
+import { Village } from "./Village";
+import { WindParticles } from "./WindParticles";
+import { Resources } from "./Resources";
 import { useProceduralTerrain } from "@/hooks/useProceduralTerrain";
 import { usePortalTrigger } from "@/hooks/usePortalTrigger";
 
@@ -55,6 +59,10 @@ export function Level1({ spawn, onEnterPortal }: Props) {
       />
 
       <Terrain data={terrain} />
+      <Resources data={terrain} />
+      <Grass data={terrain} count={6000} />
+      <Village data={terrain} />
+      <WindParticles />
 
       {/* Ocean */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]} receiveShadow>
