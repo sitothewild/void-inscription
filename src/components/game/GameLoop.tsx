@@ -16,7 +16,6 @@ import {
   GATE_DAMAGE,
   HERO_ATTACK_COOLDOWN,
   HERO_ATTACK_RANGE,
-  HERO_SPEED,
   ISLAND_RADIUS,
   NIGHT_DURATION,
   VENDOR_INTERACT_RANGE,
@@ -31,6 +30,7 @@ import {
   rangeMultiplier,
 } from "@/game/weapons";
 import { SHAMAN_POS, SMITH_POS } from "@/game/constants";
+import { heroInput } from "@/game/heroInput";
 
 function equippedWeapon(w: { sword: number; bow: number; hammer: number }): "sword" | "bow" | "hammer" | "fists" {
   const max = Math.max(w.sword, w.bow, w.hammer);
@@ -40,15 +40,12 @@ function equippedWeapon(w: { sword: number; bow: number; hammer: number }): "swo
   return "bow";
 }
 
-const keys = new Set<string>();
-
 function gatePos(angle: number) {
   return { x: Math.cos(angle) * VILLAGE_RADIUS, z: Math.sin(angle) * VILLAGE_RADIUS };
 }
 
 export function GameLoop() {
   const { camera, gl } = useThree();
-  const mouseWorld = useRef(new Vector3());
   const attackRequested = useRef(false);
   const interactRequested = useRef(false);
   const plane = useRef(new Plane(new Vector3(0, 1, 0), 0));
@@ -60,11 +57,11 @@ export function GameLoop() {
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
-      keys.add(k);
+      heroInput.keys.add(k);
       if (k === "e") interactRequested.current = true;
     };
-    const up = (e: KeyboardEvent) => keys.delete(e.key.toLowerCase());
-    const blur = () => keys.clear();
+    const up = (e: KeyboardEvent) => heroInput.keys.delete(e.key.toLowerCase());
+    const blur = () => heroInput.keys.clear();
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     window.addEventListener("blur", blur);
@@ -84,7 +81,7 @@ export function GameLoop() {
       raycaster.current.setFromCamera(ndc.current, camera);
       const hit = new Vector3();
       raycaster.current.ray.intersectPlane(plane.current, hit);
-      mouseWorld.current.copy(hit);
+      heroInput.mouseWorld.copy(hit);
     };
     const click = () => {
       attackRequested.current = true;
@@ -109,46 +106,10 @@ export function GameLoop() {
     if (isAuthoritative) s.tickPhase(dt);
 
     const links = computeLinks(s.inventory.weapons);
-
-    // Movement
-    let dx = 0;
-    let dz = 0;
-    if (keys.has("w") || keys.has("arrowup")) dz -= 1;
-    if (keys.has("s") || keys.has("arrowdown")) dz += 1;
-    if (keys.has("a") || keys.has("arrowleft")) dx -= 1;
-    if (keys.has("d") || keys.has("arrowright")) dx += 1;
-    if (touchInput.active) {
-      dx += touchInput.dx;
-      dz += touchInput.dz;
-    }
-    const len = Math.hypot(dx, dz);
-    const speedBonus =
-      s.phase === "night" && links.berserker ? HERO_SPEED * 0.15 : 0;
-    const speed = HERO_SPEED + speedBonus;
-    let nx = s.heroX;
-    let nz = s.heroZ;
-    if (len > 0) {
-      dx /= len;
-      dz /= len;
-      nx = s.heroX + dx * speed * dt;
-      nz = s.heroZ + dz * speed * dt;
-      if (Math.hypot(nx, nz) > ISLAND_RADIUS - 1) {
-        const ang = Math.atan2(nz, nx);
-        nx = Math.cos(ang) * (ISLAND_RADIUS - 1);
-        nz = Math.sin(ang) * (ISLAND_RADIUS - 1);
-      }
-    }
-
-    // Facing
-    let facing = s.heroFacing;
-    if (touchInput.active && len > 0) {
-      facing = Math.atan2(dx, dz);
-    } else {
-      const fx = mouseWorld.current.x - nx;
-      const fz = mouseWorld.current.z - nz;
-      if (Math.hypot(fx, fz) > 0.01) facing = Math.atan2(fx, fz);
-    }
-    s.setHero(nx, nz, facing);
+    // Hero position/facing are now owned by Hero.tsx (Rapier body).
+    const nx = s.heroX;
+    const nz = s.heroZ;
+    const facing = s.heroFacing;
 
     // Attack cooldown
     const cd = Math.max(0, s.heroAttackCd - dt);
