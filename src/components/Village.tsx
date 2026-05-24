@@ -375,16 +375,17 @@ export function Village({ data }: { data: TerrainData }) {
     // guarantees colliders never overlap the gate posts or extend into
     // the gate opening (the root cause of weird collisions near gates).
     const gates = [...VILLAGE_GATE_ANGLES].map(norm).sort((a, b) => a - b);
-    // Angular half-extent occupied by the gate (posts + a small clearance
-    // so the player can walk through cleanly).
-    const gateHalf = Math.atan2(GATE.postX + 0.25, r);
+    // Angular position of the gate post on the fence circle. The first
+    // fence segment should butt directly against this — no gap, no overlap.
+    const postAngle = Math.atan2(GATE.postX, r);
     // Angular footprint of one fence segment along the tangent.
     const segHalf = FENCE_SEGMENT_LEN / 2 / r;
     const segments: Array<{ pos: [number, number, number]; rot: number }> = [];
     for (let i = 0; i < gates.length; i++) {
-      const start = gates[i] + gateHalf + segHalf;
+      // start = inner edge of first segment sits flush with the gate post.
+      const start = gates[i] + postAngle + segHalf;
       const nextRaw = gates[(i + 1) % gates.length];
-      const end = (i + 1 >= gates.length ? nextRaw + TAU : nextRaw) - gateHalf - segHalf;
+      const end = (i + 1 >= gates.length ? nextRaw + TAU : nextRaw) - postAngle - segHalf;
       const span = end - start;
       if (span <= 0) continue;
       // Evenly distribute whole segments across the arc.
