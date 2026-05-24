@@ -99,6 +99,7 @@ export function Player({ spawn, camera, onRef }: Props) {
     if (!b) return;
     b.setTranslation({ x: spawn[0], y: spawn[1], z: spawn[2] }, true);
     b.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    verticalVelocity.current = 0;
   }, [spawn]);
 
   useEffect(() => {
@@ -114,6 +115,7 @@ export function Player({ spawn, camera, onRef }: Props) {
     if (tt.y < -20) {
       b.setTranslation({ x: spawn[0], y: spawn[1] + 4, z: spawn[2] }, true);
       b.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      verticalVelocity.current = 0;
     }
     const { forward, back, left, right, jump } = get();
     const vel = b.linvel();
