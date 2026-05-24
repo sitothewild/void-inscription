@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 import { Game } from "@/components/Game";
 
 export const Route = createFileRoute("/")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Seed of Yggdrasil - Viking survival in your browser" },
@@ -23,14 +23,5 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-black text-white/60">
-        Loading...
-      </div>
-    );
-  }
   return <Game />;
 }
