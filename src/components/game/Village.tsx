@@ -1,26 +1,30 @@
 import { useGame } from "@/game/store";
-import { GATE_HP, HEX_ANGLES, VILLAGE_RADIUS } from "@/game/constants";
+import { GATE_ANGLES, GATE_HP, HEX_ANGLES, VILLAGE_RADIUS } from "@/game/constants";
 
 function WallPost({ angle }: { angle: number }) {
   const x = Math.cos(angle) * VILLAGE_RADIUS;
   const z = Math.sin(angle) * VILLAGE_RADIUS;
   return (
-    <mesh position={[x, 1.2, z]} castShadow rotation={[0, -angle, 0]}>
-      <cylinderGeometry args={[0.18, 0.22, 2.4, 6]} />
+    <mesh position={[x, 1.4, z]} castShadow rotation={[0, -angle, 0]}>
+      <cylinderGeometry args={[0.3, 0.36, 2.8, 8]} />
       <meshStandardMaterial color="#6b4f2a" roughness={0.9} />
     </mesh>
   );
 }
 
+function angleInArc(am: number, a1: number, a2: number) {
+  // Returns true if angle `am` lies between a1 and a2 (shortest arc).
+  const norm = (x: number) => ((x % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  const A = norm(a1);
+  const B = norm(a2);
+  const M = norm(am);
+  if (A < B) return M >= A && M <= B;
+  return M >= A || M <= B;
+}
+
 function WallSegment({ a1, a2 }: { a1: number; a2: number }) {
-  // Skip wall segments where a gate sits between them
-  const am = (a1 + a2) / 2;
-  // Gate at +PI/2 or -PI/2 — wall segments crossing those are gates handled separately
-  const gateAngles = [Math.PI / 2, -Math.PI / 2];
-  const isGateSlot = gateAngles.some((g) => {
-    const d = Math.abs(((am - g + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-    return d > Math.PI - 0.4;
-  });
+  // Skip wall segments that contain a gate angle — the gate mesh fills that slot.
+  const isGateSlot = GATE_ANGLES.some((g) => angleInArc(g, a1, a2));
   if (isGateSlot) return null;
 
   const x1 = Math.cos(a1) * VILLAGE_RADIUS;
@@ -32,8 +36,8 @@ function WallSegment({ a1, a2 }: { a1: number; a2: number }) {
   const length = Math.hypot(x2 - x1, z2 - z1);
   const rot = Math.atan2(z2 - z1, x2 - x1);
   return (
-    <mesh position={[cx, 1, cz]} rotation={[0, -rot, 0]} castShadow receiveShadow>
-      <boxGeometry args={[length, 2, 0.35]} />
+    <mesh position={[cx, 1.1, cz]} rotation={[0, -rot, 0]} castShadow receiveShadow>
+      <boxGeometry args={[length, 2.2, 0.5]} />
       <meshStandardMaterial color="#5a3e22" roughness={0.95} />
     </mesh>
   );
