@@ -206,9 +206,9 @@ export function Village({ data }: { data: TerrainData }) {
   const huts = useMemo(() => {
     const rng = mulberry32(99);
     const arr: Array<{ pos: [number, number, number]; rot: number }> = [];
-    const radius = 5.5;
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * Math.PI * 2 + rng() * 0.2;
+    const radius = 9;
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2 + rng() * 0.2;
       const r = radius + rng() * 0.8;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
@@ -221,8 +221,8 @@ export function Village({ data }: { data: TerrainData }) {
     const posts: Array<[number, number, number]> = [];
     const rails: Array<{ pos: [number, number, number]; rot: number; length: number; y: number }> =
       [];
-    const r = 9;
-    const n = 36;
+    const r = 15;
+    const n = 56;
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
       const nextA = ((i + 1) / n) * Math.PI * 2;

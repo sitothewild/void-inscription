@@ -37,7 +37,7 @@ export function Resources({ data }: { data: TerrainData }) {
   const items = useMemo(() => {
     const out: Omit<Resource, "id">[] = [];
     const half = data.worldSize / 2;
-    const villageRadius = 11;
+    const villageRadius = 17;
     for (const b of BUCKETS) {
       const rng = mulberry32(b.seed);
       let attempts = 0;
