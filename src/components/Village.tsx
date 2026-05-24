@@ -239,6 +239,96 @@ function Campfire({ position }: { position: [number, number, number] }) {
   );
 }
 
+/**
+ * Wooden garrison watchtower. Hollow log base with a railed lookout platform
+ * and a torch on top. Anchor points are exposed for future NPC mounts
+ * (guards stationed on the platform).
+ */
+function WatchTower({
+  position,
+  rotation = 0,
+}: {
+  position: [number, number, number];
+  rotation?: number;
+}) {
+  const BASE = 1.6; // base half-width
+  const H = 4.2; // total height to platform deck
+  return (
+    <group position={position} rotation={[0, rotation, 0]}>
+      {/* Four corner posts */}
+      <RigidBody type="fixed" colliders="cuboid">
+        {[
+          [-BASE, 0, -BASE],
+          [BASE, 0, -BASE],
+          [-BASE, 0, BASE],
+          [BASE, 0, BASE],
+        ].map((p, i) => (
+          <mesh key={i} castShadow receiveShadow position={[p[0], H / 2, p[2]]}>
+            <boxGeometry args={[0.28, H, 0.28]} />
+            <meshStandardMaterial color={"#4a2f1a"} roughness={1} />
+          </mesh>
+        ))}
+      </RigidBody>
+      {/* Cross-braces (decorative, no collider) */}
+      <mesh castShadow position={[0, 1.4, -BASE]} rotation={[0, 0, Math.PI / 5]}>
+        <boxGeometry args={[BASE * 2.6, 0.14, 0.14]} />
+        <meshStandardMaterial color={"#5a3a20"} roughness={1} />
+      </mesh>
+      <mesh castShadow position={[0, 1.4, BASE]} rotation={[0, 0, -Math.PI / 5]}>
+        <boxGeometry args={[BASE * 2.6, 0.14, 0.14]} />
+        <meshStandardMaterial color={"#5a3a20"} roughness={1} />
+      </mesh>
+      <mesh castShadow position={[-BASE, 1.4, 0]} rotation={[Math.PI / 5, 0, 0]}>
+        <boxGeometry args={[0.14, 0.14, BASE * 2.6]} />
+        <meshStandardMaterial color={"#5a3a20"} roughness={1} />
+      </mesh>
+      <mesh castShadow position={[BASE, 1.4, 0]} rotation={[-Math.PI / 5, 0, 0]}>
+        <boxGeometry args={[0.14, 0.14, BASE * 2.6]} />
+        <meshStandardMaterial color={"#5a3a20"} roughness={1} />
+      </mesh>
+      {/* Platform deck */}
+      <RigidBody type="fixed" colliders="cuboid">
+        <mesh castShadow receiveShadow position={[0, H + 0.1, 0]}>
+          <boxGeometry args={[BASE * 2.4, 0.2, BASE * 2.4]} />
+          <meshStandardMaterial color={"#6b4a2b"} roughness={1} />
+        </mesh>
+      </RigidBody>
+      {/* Platform railings */}
+      {[
+        { p: [0, H + 0.75, -BASE] as [number, number, number], r: [0, 0, 0] as [number, number, number] },
+        { p: [0, H + 0.75, BASE] as [number, number, number], r: [0, 0, 0] as [number, number, number] },
+        { p: [-BASE, H + 0.75, 0] as [number, number, number], r: [0, Math.PI / 2, 0] as [number, number, number] },
+        { p: [BASE, H + 0.75, 0] as [number, number, number], r: [0, Math.PI / 2, 0] as [number, number, number] },
+      ].map((b, i) => (
+        <mesh key={i} castShadow position={b.p} rotation={b.r}>
+          <boxGeometry args={[BASE * 2.4, 0.12, 0.12]} />
+          <meshStandardMaterial color={"#5a3a20"} roughness={1} />
+        </mesh>
+      ))}
+      {/* Pitched plank roof */}
+      <mesh castShadow position={[0, H + 1.9, 0]} rotation={[0, Math.PI / 4, 0]}>
+        <coneGeometry args={[BASE * 1.7, 1.2, 4]} />
+        <meshStandardMaterial color={"#3a2a18"} roughness={1} />
+      </mesh>
+      {/* Torch on the outward side (facing village outskirts) */}
+      <mesh castShadow position={[0, H + 0.6, BASE - 0.1]}>
+        <cylinderGeometry args={[0.05, 0.05, 0.6, 6]} />
+        <meshStandardMaterial color={"#2a1a0e"} />
+      </mesh>
+      <mesh position={[0, H + 1.05, BASE - 0.1]}>
+        <coneGeometry args={[0.18, 0.4, 8]} />
+        <meshStandardMaterial
+          color={"#ffaa3a"}
+          emissive={"#ff7a1a"}
+          emissiveIntensity={3}
+          toneMapped={false}
+        />
+      </mesh>
+      <pointLight color={"#ffb070"} intensity={3} distance={10} position={[0, H + 1.1, BASE - 0.1]} />
+    </group>
+  );
+}
+
 /** Cluster of huts + a campfire around the central anchor pylon. */
 export function Village({ data }: { data: TerrainData }) {
   const baseY = data.sampleWorldY(0, 0);
@@ -347,6 +437,34 @@ export function Village({ data }: { data: TerrainData }) {
     return { posts, rails, radius: r };
   }, [data]);
 
+  // Two watchtowers per gate, flanking each gate just inside the fence.
+  // Positions: gate center + tangent*±OFFSET + inward*INSET.
+  const towers = useMemo(() => {
+    const fenceR = 15;
+    const TANGENT = GATE.postX + 2.2; // outside the door swing arc
+    const INSET = 3.0; // pulled inside the village
+    const out: Array<{ pos: [number, number, number]; rot: number }> = [];
+    for (const angle of VILLAGE_GATE_ANGLES) {
+      const cx = Math.cos(angle) * fenceR;
+      const cz = Math.sin(angle) * fenceR;
+      const tx = -Math.sin(angle);
+      const tz = Math.cos(angle);
+      // Inward unit vector (toward village center).
+      const ix = -Math.cos(angle);
+      const iz = -Math.sin(angle);
+      for (const side of [-1, 1] as const) {
+        const x = cx + tx * TANGENT * side + ix * INSET;
+        const z = cz + tz * TANGENT * side + iz * INSET;
+        const y = data.sampleWorldY(x, z);
+        // Face the tower outward (toward the gate), so the torch & platform
+        // front line up with the road.
+        const rot = Math.atan2(-iz, ix) + Math.PI / 2;
+        out.push({ pos: [x, y, z], rot });
+      }
+    }
+    return out;
+  }, [data]);
+
   return (
     <group>
       {huts.map((h, i) => (
@@ -360,6 +478,9 @@ export function Village({ data }: { data: TerrainData }) {
       ))}
       {VILLAGE_GATE_ANGLES.map((angle, i) => (
         <Gate key={i} data={data} radius={fence.radius} angle={angle} />
+      ))}
+      {towers.map((t, i) => (
+        <WatchTower key={i} position={t.pos} rotation={t.rot} />
       ))}
       {/* Campfire on the back side of the pylon, off the gate path */}
       <Campfire position={[0, baseY, -3.5]} />
