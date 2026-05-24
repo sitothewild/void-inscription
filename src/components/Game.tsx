@@ -8,6 +8,7 @@ import { Level2 } from "./Level2";
 import type { Controls } from "./Player";
 import { TouchControls } from "./TouchControls";
 import { HUD } from "./HUD";
+import { PauseMenu } from "./PauseMenu";
 
 export function Game() {
   const [currentLevel, setCurrentLevel] = useState<1 | 2>(1);
@@ -60,6 +61,7 @@ export function Game() {
 
       <HUD />
       <TouchControls />
+      <PauseMenu />
 
       <div
         style={{

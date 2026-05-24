@@ -9,14 +9,33 @@ type Arrow = {
   dir: [number, number, number];
   speed: number;
   life: number;
+  /** Max travel distance (m) before despawn. */
+  maxDistance: number;
+  /** Damage scalar (0..1+) — used by hit handlers. */
+  power: number;
 };
 
 type Listener = (a: Omit<Arrow, "id" | "life">) => void;
 const listeners = new Set<Listener>();
 
 /** Fire an arrow from anywhere in the app. */
-export function fireArrow(a: Omit<Arrow, "id" | "life">) {
-  listeners.forEach((l) => l(a));
+export function fireArrow(a: {
+  pos: [number, number, number];
+  dir: [number, number, number];
+  speed: number;
+  /** Max distance (m). Default 12. */
+  maxDistance?: number;
+  /** Damage 0..1. Default 0.3 (quick shot). */
+  power?: number;
+}) {
+  const full: Omit<Arrow, "id" | "life"> = {
+    pos: a.pos,
+    dir: a.dir,
+    speed: a.speed,
+    maxDistance: a.maxDistance ?? 12,
+    power: a.power ?? 0.3,
+  };
+  listeners.forEach((l) => l(full));
 }
 
 function ArrowMesh({ arrow }: { arrow: Arrow }) {
@@ -24,13 +43,23 @@ function ArrowMesh({ arrow }: { arrow: Arrow }) {
   const { scene } = useGLTF("/models/items/arrow.glb");
   const rotY = Math.atan2(arrow.dir[0], arrow.dir[2]);
   const rotX = -Math.asin(arrow.dir[1]);
+  const travelled = useRef(0);
+  const onDespawn = useRef<(() => void) | null>(null);
 
   useFrame((_, dt) => {
     const g = ref.current;
     if (!g) return;
-    g.position.x += arrow.dir[0] * arrow.speed * dt;
-    g.position.y += arrow.dir[1] * arrow.speed * dt;
-    g.position.z += arrow.dir[2] * arrow.speed * dt;
+    const step = arrow.speed * dt;
+    g.position.x += arrow.dir[0] * step;
+    g.position.y += arrow.dir[1] * step;
+    g.position.z += arrow.dir[2] * step;
+    travelled.current += step;
+    if (travelled.current >= arrow.maxDistance) {
+      // Sink it harmlessly — Projectiles' lifetime sweep will GC it next.
+      arrow.life = 0;
+      arrow.speed = 0;
+      return;
+    }
     // Mild gravity arc
     arrow.dir[1] -= 0.4 * dt;
     const len = Math.hypot(arrow.dir[0], arrow.dir[1], arrow.dir[2]) || 1;
@@ -46,7 +75,10 @@ function ArrowMesh({ arrow }: { arrow: Arrow }) {
       position={arrow.pos}
       rotation={[rotX, rotY, 0]}
     >
-      <Clone object={scene} scale={0.6} castShadow />
+      <Clone object={scene} scale={0.6 + arrow.power * 0.5} castShadow />
+      {arrow.power > 0.5 && (
+        <pointLight color={"#ff4030"} intensity={arrow.power * 4} distance={3} />
+      )}
     </group>
   );
 }
@@ -62,7 +94,15 @@ export function Projectiles() {
       spawned.current.set(id, performance.now());
       setArrows((prev) => [
         ...prev,
-        { id, pos: [...a.pos] as [number, number, number], dir: [...a.dir] as [number, number, number], speed: a.speed, life: 4 },
+        {
+          id,
+          pos: [...a.pos] as [number, number, number],
+          dir: [...a.dir] as [number, number, number],
+          speed: a.speed,
+          life: 4,
+          maxDistance: a.maxDistance,
+          power: a.power,
+        },
       ]);
     };
     listeners.add(handler);
@@ -77,7 +117,7 @@ export function Projectiles() {
     const map = spawned.current;
     const remaining = arrows.filter((a) => {
       const t = map.get(a.id) ?? now;
-      if (now - t > a.life * 1000) {
+      if (a.life <= 0 || now - t > a.life * 1000) {
         map.delete(a.id);
         changed = true;
         return false;
