@@ -108,7 +108,7 @@ export function Level1({ spawn, onEnterPortal }: Props) {
         <Portal key={p.id} position={p.position} color={"#6040ff"} />
       ))}
 
-      <Player spawn={spawn} camera="iso" onRef={(b) => (playerRef.current = b)} />
+      <Player spawn={spawn} terrain={terrain} camera="iso" onRef={(b) => (playerRef.current = b)} />
     </>
   );
 }

@@ -48,9 +48,15 @@ export function Terrain({ data }: { data: TerrainData }) {
     geom.setIndex(indices);
     geom.computeVertexNormals();
 
-    // Rapier heightfield: heights[i + j*nrows] at (i*sx/(nrows-1), j*sz/(ncols-1)).
-    // Our mesh stores heights[j*size + i] (z-outer, x-inner) — same layout as Rapier expects.
-    const hf: number[] = Array.from(heights);
+    // Rapier heightfields are column-major: x-column outer, z-row inner.
+    // Our visual mesh is row-major (z outer, x inner), so transpose it here
+    // or the physics hills won't match the rendered hills.
+    const hf: number[] = [];
+    for (let i = 0; i < size; i++) {
+      for (let j = 0; j < size; j++) {
+        hf.push(heights[j * size + i]);
+      }
+    }
     return { geometry: geom, heightArray: hf };
   }, [data]);
 
