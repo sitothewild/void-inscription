@@ -154,6 +154,10 @@ export function Player({ spawn, camera, onRef }: Props) {
     window.addEventListener("mouseup", onUp);
     window.addEventListener("contextmenu", onCtx);
     const offAttack = onEdge("attack", shoot);
+    const offAttackDown = onEdge("attackDown", () => {
+      chargeStart.current = performance.now();
+    });
+    const offAttackUp = onEdge("attackUp", releaseCharge);
     const offJump = onEdge("jump", () => {
       const b = bodyRef.current;
       if (!b) return;
@@ -164,6 +168,8 @@ export function Player({ spawn, camera, onRef }: Props) {
       window.removeEventListener("mouseup", onUp);
       window.removeEventListener("contextmenu", onCtx);
       offAttack();
+      offAttackDown();
+      offAttackUp();
       offJump();
     };
   }, []);

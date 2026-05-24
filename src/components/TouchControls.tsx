@@ -89,6 +89,7 @@ function ActionButton({
   color = "#ffb060",
   icon,
   onPress,
+  onRelease,
   style,
 }: {
   label: string;
@@ -96,21 +97,36 @@ function ActionButton({
   color?: string;
   icon: React.ReactNode;
   onPress: () => void;
+  onRelease?: () => void;
   style?: React.CSSProperties;
 }) {
   const [pressed, setPressed] = useState(false);
-  const handle = useCallback(
+  const activeId = useRef<number | null>(null);
+  const handleDown = useCallback(
     (e: React.PointerEvent) => {
       e.preventDefault();
+      activeId.current = e.pointerId;
+      (e.currentTarget as Element).setPointerCapture(e.pointerId);
       setPressed(true);
       onPress();
-      setTimeout(() => setPressed(false), 140);
     },
     [onPress],
   );
+  const handleUp = useCallback(
+    (e: React.PointerEvent) => {
+      if (activeId.current !== e.pointerId) return;
+      activeId.current = null;
+      setPressed(false);
+      onRelease?.();
+    },
+    [onRelease],
+  );
   return (
     <button
-      onPointerDown={handle}
+      onPointerDown={handleDown}
+      onPointerUp={handleUp}
+      onPointerCancel={handleUp}
+      onPointerLeave={handleUp}
       aria-label={label}
       style={{
         position: "absolute",
@@ -201,7 +217,8 @@ export function TouchControls() {
           size={84}
           color="#ffb060"
           icon={<Crosshair size={36} />}
-          onPress={() => emitEdge("attack")}
+          onPress={() => emitEdge("attackDown")}
+          onRelease={() => emitEdge("attackUp")}
           style={{ right: 28, bottom: 28 }}
         />
         {/* Action / interact — left of attack */}
