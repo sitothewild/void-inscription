@@ -89,13 +89,13 @@ export function Level1({ spawn, onEnterPortal }: Props) {
       </Suspense>
       <WindParticles />
 
-      {/* Animated ocean with shoreline foam */}
-      <Ocean size={900} y={-0.2} shoreRadius={terrain.worldSize / 2 - 6} />
-      {/* Sand shoreline ring just below sea level, hides the seam */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]} receiveShadow>
+      {/* Sand shoreline ring sits low so the water can lap over it. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.4, 0]} receiveShadow>
         <ringGeometry args={[terrain.worldSize / 2 - 12, terrain.worldSize / 2 + 4, 96]} />
         <meshStandardMaterial color={"#e8d39a"} roughness={1} />
       </mesh>
+      {/* Animated ocean — sits just above the sand so waves visibly cover the beach. */}
+      <Ocean size={900} y={0.15} shoreRadius={terrain.worldSize / 2 - 6} />
 
       {/* Village Anchor — spinning cube + particles */}
       <Pylon position={[0, terrain.sampleWorldY(0, 0) + 3, 0]} color={"#ffb060"} />
