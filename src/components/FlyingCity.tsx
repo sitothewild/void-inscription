@@ -23,19 +23,19 @@ type Piece = {
 };
 
 const ISLAND_URLS = [
-  "/models/platformer/Large Island.glb",
-  "/models/platformer/Medium Island.glb",
+  "/models/platformer/Large_Island.glb",
+  "/models/platformer/Medium_Island.glb",
   "/models/platformer/Island.glb",
-  "/models/platformer/Grass Platform.glb",
-  "/models/platformer/Stone Platform.glb",
+  "/models/platformer/Grass_Platform.glb",
+  "/models/platformer/Stone_Platform.glb",
 ];
 
 const DECOR_URLS = [
   "/models/platformer/Tree.glb",
-  "/models/platformer/Large Rock.glb",
-  "/models/platformer/Small Rock.glb",
+  "/models/platformer/Large_Rock.glb",
+  "/models/platformer/Small_Rock.glb",
   "/models/platformer/Coin.glb",
-  "/models/platformer/Coin Dollar Sign.glb",
+  "/models/platformer/Coin_Dollar_Sign.glb",
   "/models/platformer/Flag.glb",
 ];
 
