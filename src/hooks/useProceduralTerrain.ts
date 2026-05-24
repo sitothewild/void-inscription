@@ -101,20 +101,56 @@ export function useProceduralTerrain(
       }
     }
 
-    // Single-pass 3x3 box smoothing to wash out any remaining noise spikes
-    // without flattening the silhouette. Preserves the village pad area.
-    const smoothed = new Float32Array(heights);
-    for (let j = 1; j < n - 1; j++) {
-      for (let i = 1; i < n - 1; i++) {
-        const idx = j * n + i;
-        const sum =
-          heights[idx - n - 1] + heights[idx - n] + heights[idx - n + 1] +
-          heights[idx - 1]     + heights[idx]     + heights[idx + 1] +
-          heights[idx + n - 1] + heights[idx + n] + heights[idx + n + 1];
-        smoothed[idx] = sum / 9;
+    // Multiple 3x3 box smoothing passes — kills steep cliffs so the player
+    // can climb hills instead of getting wedged or popping through them.
+    const tmp = new Float32Array(heights);
+    for (let pass = 0; pass < 3; pass++) {
+      for (let j = 1; j < n - 1; j++) {
+        for (let i = 1; i < n - 1; i++) {
+          const idx = j * n + i;
+          const sum =
+            heights[idx - n - 1] + heights[idx - n] + heights[idx - n + 1] +
+            heights[idx - 1]     + heights[idx]     + heights[idx + 1] +
+            heights[idx + n - 1] + heights[idx + n] + heights[idx + n + 1];
+          tmp[idx] = sum / 9;
+        }
       }
+      heights.set(tmp);
     }
-    heights.set(smoothed);
+
+    // Cap per-cell slope so no two neighboring vertices differ by more than
+    // a walkable amount. Iteratively pull spikes toward their neighbors.
+    // maxStep is normalized [0..1] height; with worldSize=200, segments≈200
+    // that's a cell size of ~1m. 0.05 * maxHeight(18) ≈ 0.9m per cell ≈ 42°.
+    const maxStep = 0.05;
+    for (let pass = 0; pass < 4; pass++) {
+      let changed = false;
+      for (let j = 1; j < n - 1; j++) {
+        for (let i = 1; i < n - 1; i++) {
+          const idx = j * n + i;
+          // Preserve the flat village pad
+          const x = (i / segments) * worldSize - half;
+          const z = (j / segments) * worldSize - half;
+          if (Math.sqrt(x * x + z * z) < villageRadius + 2) continue;
+          const h = heights[idx];
+          const neigh = [
+            heights[idx - 1], heights[idx + 1],
+            heights[idx - n], heights[idx + n],
+          ];
+          for (const nh of neigh) {
+            const diff = h - nh;
+            if (diff > maxStep) {
+              heights[idx] = nh + maxStep;
+              changed = true;
+            } else if (diff < -maxStep) {
+              heights[idx] = nh - maxStep;
+              changed = true;
+            }
+          }
+        }
+      }
+      if (!changed) break;
+    }
 
     const sampleAt = (x: number, z: number) => {
       const fx = ((x + half) / worldSize) * segments;
