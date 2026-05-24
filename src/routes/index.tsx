@@ -36,12 +36,20 @@ function Index() {
           blade. When night falls, the Helthings come for the Seed. Hold the
           line for five nights.
         </p>
-        <Link
-          to="/play"
-          className="rounded-md bg-emerald-500 px-8 py-4 text-lg font-bold text-black shadow-[0_0_40px_rgba(63,168,63,0.5)] transition hover:bg-emerald-400"
-        >
-          Enter Midgard
-        </Link>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Link
+            to="/play"
+            className="rounded-md bg-emerald-500 px-8 py-4 text-lg font-bold text-black shadow-[0_0_40px_rgba(63,168,63,0.5)] transition hover:bg-emerald-400"
+          >
+            Enter Midgard
+          </Link>
+          <Link
+            to="/lobby"
+            className="rounded-md border border-white/20 bg-white/5 px-8 py-4 text-lg font-bold text-white transition hover:bg-white/10"
+          >
+            Play with friends
+          </Link>
+        </div>
         <div className="mt-12 grid grid-cols-1 gap-6 text-left md:grid-cols-3">
           <Feature title="Day" body="Explore the island and harvest resources from a deterministic procedural map." />
           <Feature title="Dusk" body="Craft an axe, a sword, or palisades at the Seed to prepare for the wave." />
