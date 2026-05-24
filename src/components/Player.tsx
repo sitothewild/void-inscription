@@ -11,10 +11,10 @@ import {
 import { Group, Vector3 } from "three";
 import { CharacterModel, type CharState } from "./CharacterModel";
 import { fireArrow } from "./Projectiles";
-import { mobileAxis, onEdge, playerPos, playerState } from "@/game/inputStore";
+import { mobileAxis, onEdge, playerPos, playerState, runState } from "@/game/inputStore";
 import { setPlayerChunkPosition } from "@/game/chunkManager";
 
-export type Controls = "forward" | "back" | "left" | "right" | "jump";
+export type Controls = "forward" | "back" | "left" | "right" | "jump" | "sprint";
 
 type Props = {
   spawn: [number, number, number];
@@ -23,7 +23,8 @@ type Props = {
   onRef?: (body: RapierRigidBody | null) => void;
 };
 
-const SPEED = 8;
+const WALK_SPEED = 4.5;
+const RUN_SPEED = 9;
 const JUMP_IMPULSE = 12;
 
 export function Player({ spawn, camera, onRef }: Props) {
@@ -121,7 +122,7 @@ export function Player({ spawn, camera, onRef }: Props) {
       b.setLinvel({ x: 0, y: 0, z: 0 }, true);
       verticalVelocity.current = 0;
     }
-    const { forward, back, left, right, jump } = get();
+    const { forward, back, left, right, jump, sprint } = get();
     const vel = b.linvel();
 
     let dx = 0;
@@ -134,18 +135,20 @@ export function Player({ spawn, camera, onRef }: Props) {
     dx += mobileAxis.x;
     dz += mobileAxis.y;
     const len = Math.hypot(dx, dz);
+    const sprinting = sprint || runState.toggled;
+    const moveSpeed = sprinting ? RUN_SPEED : WALK_SPEED;
     movingRef.current = len > 0;
     playerState.moving = len > 0;
     if (len > 0) {
       const mag = Math.min(1, len);
-      dx = (dx / len) * SPEED * mag;
-      dz = (dz / len) * SPEED * mag;
+      dx = (dx / len) * moveSpeed * mag;
+      dz = (dz / len) * moveSpeed * mag;
       speedRef.current = Math.hypot(dx, dz);
     } else {
       speedRef.current = 0;
     }
     stateRef.current =
-      speedRef.current < 0.1 ? "idle" : speedRef.current > SPEED * 0.7 ? "run" : "walk";
+      speedRef.current < 0.1 ? "idle" : sprinting ? "run" : "walk";
 
     // Grounded check: cast ray downward
     const t = b.translation();
