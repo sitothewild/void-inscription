@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useGLTF, useAnimations } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
 import { Box3, Group, Vector3 } from "three";
 import { SkeletonUtils } from "three-stdlib";
 
@@ -10,13 +11,19 @@ type Props = {
   animation?: string;
   /** Y offset (model origin is usually at feet). */
   yOffset?: number;
+  /** When true, procedural walk bob is applied. Used as fallback when GLB lacks clips. */
+  moving?: boolean;
+  /** Optional per-frame getter for moving state (avoids re-renders). */
+  getMoving?: () => boolean;
+  /** Procedural anim speed multiplier. */
+  rate?: number;
 };
 
 /**
  * Loads a GLB and plays an animation. Clones the scene so multiple instances
  * of the same model can coexist with independent skeletons.
  */
-export function CharacterModel({ url, scale = 1, animation, yOffset = 0 }: Props) {
+export function CharacterModel({ url, scale = 1, animation, yOffset = 0, moving = false, getMoving, rate = 1 }: Props) {
   const gltf = useGLTF(url);
   const cloned = useMemo(() => SkeletonUtils.clone(gltf.scene), [gltf.scene]);
   const autoScale = useMemo(() => {
@@ -27,7 +34,10 @@ export function CharacterModel({ url, scale = 1, animation, yOffset = 0 }: Props
     return size.y > 0 && size.y < 0.5 ? 1.8 / size.y : 1;
   }, [cloned]);
   const groupRef = useRef<Group>(null);
+  const animRef = useRef<Group>(null);
+  const seed = useMemo(() => Math.random() * Math.PI * 2, []);
   const { actions, names } = useAnimations(gltf.animations, groupRef);
+  const hasClip = names.length > 0;
 
   useEffect(() => {
     cloned.traverse((o) => {
@@ -54,9 +64,31 @@ export function CharacterModel({ url, scale = 1, animation, yOffset = 0 }: Props
     };
   }, [actions, names, animation]);
 
+  // Procedural fallback: bob & sway when the GLB has no animation clips.
+  useFrame((state) => {
+    if (hasClip) return;
+    const g = animRef.current;
+    if (!g) return;
+    const t = state.clock.elapsedTime * rate + seed;
+    const isMoving = getMoving ? getMoving() : moving;
+    if (isMoving) {
+      const stride = Math.sin(t * 10);
+      g.position.y = Math.abs(stride) * 0.08;
+      g.rotation.z = stride * 0.06;
+      g.rotation.x = Math.cos(t * 10) * 0.04;
+    } else {
+      const breathe = Math.sin(t * 2) * 0.02;
+      g.position.y = breathe;
+      g.rotation.z = Math.sin(t * 1.3) * 0.01;
+      g.rotation.x = 0;
+    }
+  });
+
   return (
     <group ref={groupRef} position={[0, yOffset, 0]} scale={scale * autoScale}>
-      <primitive object={cloned} />
+      <group ref={animRef}>
+        <primitive object={cloned} />
+      </group>
     </group>
   );
 }

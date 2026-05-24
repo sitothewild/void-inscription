@@ -107,7 +107,7 @@ function WanderingAnimal({ spec, data }: { spec: Spec; data: TerrainData }) {
   return (
     <group ref={ref}>
       <Suspense fallback={null}>
-        <CharacterModel url={spec.url} scale={spec.scale} animation="run" />
+        <CharacterModel url={spec.url} scale={spec.scale} animation="run" moving rate={spec.speed * 0.6} />
       </Suspense>
     </group>
   );
