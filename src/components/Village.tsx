@@ -35,9 +35,9 @@ function Hut({
     <RigidBody type="fixed" colliders={false} position={position} rotation={[0, rotation, 0]}>
       {/* Tight collider covers the suburban house footprint. The visual GLB
           is loaded inside a Suspense; the collider stays put while it streams. */}
-      <CuboidCollider args={[1.6, 1.4, 1.6]} position={[0, 1.4, 0]} friction={1.2} />
+      <CuboidCollider args={[2.4, 2.2, 2.4]} position={[0, 2.2, 0]} friction={1.2} />
       <Suspense fallback={null}>
-        <GltfProp url={url} scale={1.6} />
+        <GltfProp url={url} scale={2.6} />
       </Suspense>
     </RigidBody>
   );
@@ -56,8 +56,9 @@ const GATE = {
  * mesh is loaded asynchronously inside Suspense.
  */
 const FENCE_URL = "/models/fences/Wood_Fence_1.glb";
-/** Approximate segment width of one fence GLB. Used to space modules. */
-export const FENCE_SEGMENT_LEN = 1.8;
+/** Approximate segment width of one fence GLB. Slightly under-counted on
+ *  purpose so adjacent segments overlap a touch and gaps disappear. */
+export const FENCE_SEGMENT_LEN = 1.55;
 
 function FenceSegment({
   position,
@@ -73,9 +74,9 @@ function FenceSegment({
       position={position}
       rotation={[0, rotation, 0]}
     >
-      <CuboidCollider args={[FENCE_SEGMENT_LEN / 2, 0.7, 0.08]} position={[0, 0.7, 0]} />
+      <CuboidCollider args={[FENCE_SEGMENT_LEN / 2 + 0.05, 0.7, 0.08]} position={[0, 0.7, 0]} />
       <Suspense fallback={null}>
-        <GltfProp url={FENCE_URL} scale={1.1} />
+        <GltfProp url={FENCE_URL} scale={1.25} />
       </Suspense>
     </RigidBody>
   );
@@ -367,7 +368,7 @@ export function Village({ data }: { data: TerrainData }) {
   // village radius, skipping each gate's clearance arc. Each segment sits on
   // the terrain and faces tangent to the circle.
   const fence = useMemo(() => {
-    const r = 15;
+    const r = 18; // slightly larger ring to fit bigger houses
     const TAU = Math.PI * 2;
     const norm = (a: number) => ((a % TAU) + TAU) % TAU;
     // Pack fence segments inside each arc between gates, starting just
@@ -383,13 +384,13 @@ export function Village({ data }: { data: TerrainData }) {
     const segments: Array<{ pos: [number, number, number]; rot: number }> = [];
     for (let i = 0; i < gates.length; i++) {
       // start = inner edge of first segment sits flush with the gate post.
-      const start = gates[i] + postAngle + segHalf;
+      const start = gates[i] + postAngle + segHalf * 0.9; // tiny inward bias closes the corner gap
       const nextRaw = gates[(i + 1) % gates.length];
-      const end = (i + 1 >= gates.length ? nextRaw + TAU : nextRaw) - postAngle - segHalf;
+      const end = (i + 1 >= gates.length ? nextRaw + TAU : nextRaw) - postAngle - segHalf * 0.9;
       const span = end - start;
       if (span <= 0) continue;
-      // Evenly distribute whole segments across the arc.
-      const n = Math.max(1, Math.round(span / (segHalf * 2)));
+      // Ceil so adjacent segments overlap slightly rather than leaving a gap.
+      const n = Math.max(1, Math.ceil(span / (segHalf * 2)));
       const step = span / n;
       for (let k = 0; k < n; k++) {
         const a = start + step * (k + 0.5);
@@ -406,7 +407,7 @@ export function Village({ data }: { data: TerrainData }) {
   // Two watchtowers per gate, flanking each gate just inside the fence.
   // Positions: gate center + tangent*±OFFSET + inward*INSET.
   const towers = useMemo(() => {
-    const fenceR = 15;
+    const fenceR = 18;
     const TANGENT = GATE.postX + 2.2; // outside the door swing arc
     const INSET = 3.0; // pulled inside the village
     const out: Array<{ pos: [number, number, number]; rot: number }> = [];
