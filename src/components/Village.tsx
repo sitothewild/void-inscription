@@ -35,14 +35,90 @@ function Hut({ position, rotation }: { position: [number, number, number]; rotat
   );
 }
 
-function FencePost({ position }: { position: [number, number, number] }) {
+function FencePost({
+  position,
+  scale = 1,
+}: {
+  position: [number, number, number];
+  scale?: number;
+}) {
   return (
     <RigidBody type="fixed" colliders="cuboid" position={position}>
-      <mesh castShadow>
-        <boxGeometry args={[0.18, 1.1, 0.18]} />
+      <mesh castShadow position={[0, (scale - 1) * 0.55, 0]}>
+        <boxGeometry args={[0.2, 1.1 * scale, 0.2]} />
         <meshStandardMaterial color={"#5a3a20"} roughness={1} />
       </mesh>
     </RigidBody>
+  );
+}
+
+function FenceRail({
+  position,
+  rotation,
+  length,
+  y,
+}: {
+  position: [number, number, number];
+  rotation: number;
+  length: number;
+  y: number;
+}) {
+  return (
+    <RigidBody
+      type="fixed"
+      colliders="cuboid"
+      position={[position[0], y, position[2]]}
+      rotation={[0, rotation, 0]}
+    >
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[length, 0.16, 0.16]} />
+        <meshStandardMaterial color={"#6f4726"} roughness={1} />
+      </mesh>
+    </RigidBody>
+  );
+}
+
+function Gate({ data, radius }: { data: TerrainData; radius: number }) {
+  const z = radius;
+  const y = data.sampleWorldY(0, z);
+  const posts: Array<[number, number, number]> = [
+    [-2.6, data.sampleWorldY(-2.6, z) + 0.75, z],
+    [2.6, data.sampleWorldY(2.6, z) + 0.75, z],
+  ];
+  return (
+    <group>
+      {posts.map((p, i) => (
+        <FencePost key={i} position={p} scale={1.6} />
+      ))}
+      <RigidBody type="fixed" colliders="cuboid" position={[0, y + 2.05, z]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[5.8, 0.28, 0.32]} />
+          <meshStandardMaterial color={"#5a3a20"} roughness={1} />
+        </mesh>
+      </RigidBody>
+      <RigidBody
+        type="fixed"
+        colliders="cuboid"
+        position={[-1.55, y + 0.65, z + 0.25]}
+        rotation={[0, -0.45, 0]}
+      >
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[2.2, 1.2, 0.16]} />
+          <meshStandardMaterial color={"#7a4d2a"} roughness={1} />
+        </mesh>
+      </RigidBody>
+      <RigidBody
+        type="fixed"
+        colliders="cuboid"
+        position={[1.55, y + 0.65, z + 0.25]}
+        rotation={[0, 0.45, 0]}
+      >
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[2.2, 1.2, 0.16]} />
+          <meshStandardMaterial color={"#7a4d2a"} roughness={1} />
+        </mesh>
+      </RigidBody>
+    </group>
   );
 }
 
@@ -87,18 +163,36 @@ export function Village({ data }: { data: TerrainData }) {
 
   const fence = useMemo(() => {
     const posts: Array<[number, number, number]> = [];
+    const rails: Array<{ pos: [number, number, number]; rot: number; length: number; y: number }> =
+      [];
     const r = 9;
-    const n = 28;
+    const n = 36;
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
+      const nextA = ((i + 1) / n) * Math.PI * 2;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
       // Leave a gap (gate) on +Z side
-      if (a > Math.PI * 0.4 && a < Math.PI * 0.6) continue;
+      const inGate = a > Math.PI * 0.39 && a < Math.PI * 0.61;
+      const nextInGate = nextA > Math.PI * 0.39 && nextA < Math.PI * 0.61;
+      if (inGate) continue;
       const y = data.sampleWorldY(x, z) + 0.55;
       posts.push([x, y, z]);
+      if (!nextInGate) {
+        const x2 = Math.cos(nextA) * r;
+        const z2 = Math.sin(nextA) * r;
+        const mx = (x + x2) / 2;
+        const mz = (z + z2) / 2;
+        const dy = data.sampleWorldY(mx, mz);
+        const dx = x2 - x;
+        const dz = z2 - z;
+        const length = Math.hypot(dx, dz);
+        const rot = Math.atan2(-dz, dx);
+        rails.push({ pos: [mx, dy + 0.78, mz], rot, length, y: dy + 0.78 });
+        rails.push({ pos: [mx, dy + 1.2, mz], rot, length, y: dy + 1.2 });
+      }
     }
-    return posts;
+    return { posts, rails, radius: r };
   }, [data]);
 
   return (
@@ -106,9 +200,13 @@ export function Village({ data }: { data: TerrainData }) {
       {huts.map((h, i) => (
         <Hut key={i} position={h.pos} rotation={h.rot} />
       ))}
-      {fence.map((p, i) => (
+      {fence.posts.map((p, i) => (
         <FencePost key={i} position={p} />
       ))}
+      {fence.rails.map((r, i) => (
+        <FenceRail key={i} position={r.pos} rotation={r.rot} length={r.length} y={r.y} />
+      ))}
+      <Gate data={data} radius={fence.radius} />
       <Campfire position={[3, baseY, 2]} />
     </group>
   );

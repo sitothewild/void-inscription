@@ -5,12 +5,14 @@ import {
   CapsuleCollider,
   RigidBody,
   useRapier,
+  type RapierCollider,
   type RapierRigidBody,
 } from "@react-three/rapier";
 import { Group, Vector3 } from "three";
 import { CharacterModel } from "./CharacterModel";
 import { fireArrow } from "./Projectiles";
 import { mobileAxis, onEdge } from "@/game/inputStore";
+import { setPlayerChunkPosition } from "@/game/chunkManager";
 
 export type Controls = "forward" | "back" | "left" | "right" | "jump";
 
@@ -26,15 +28,32 @@ const JUMP_IMPULSE = 12;
 
 export function Player({ spawn, camera, onRef }: Props) {
   const bodyRef = useRef<RapierRigidBody | null>(null);
+  const colliderRef = useRef<RapierCollider | null>(null);
   const visualRef = useRef<Group>(null);
   const [, get] = useKeyboardControls<Controls>();
   const { rapier, world } = useRapier();
+  const controllerRef = useRef<ReturnType<typeof world.createCharacterController> | null>(null);
   const cam = useThree((s) => s.camera);
   const targetCam = useRef(new Vector3());
   const targetLook = useRef(new Vector3());
   const facing = useRef(0);
   const lastShot = useRef(0);
+  const verticalVelocity = useRef(0);
   const bow = useGLTF("/models/items/bow.glb");
+
+  useEffect(() => {
+    const controller = world.createCharacterController(0.05);
+    controller.setSlideEnabled(true);
+    controller.enableAutostep(0.45, 0.25, false);
+    controller.enableSnapToGround(0.6);
+    controller.setMaxSlopeClimbAngle((50 * Math.PI) / 180);
+    controller.setMinSlopeSlideAngle((58 * Math.PI) / 180);
+    controllerRef.current = controller;
+    return () => {
+      controller.free();
+      controllerRef.current = null;
+    };
+  }, [world]);
 
   const shoot = () => {
     const now = performance.now();
@@ -45,11 +64,7 @@ export function Player({ spawn, camera, onRef }: Props) {
     const t = b.translation();
     const f = facing.current;
     const dir: [number, number, number] = [Math.sin(f), 0.18, Math.cos(f)];
-    const pos: [number, number, number] = [
-      t.x + dir[0] * 0.8,
-      t.y + 0.4,
-      t.z + dir[2] * 0.8,
-    ];
+    const pos: [number, number, number] = [t.x + dir[0] * 0.8, t.y + 0.4, t.z + dir[2] * 0.8];
     fireArrow({ pos, dir, speed: 22 });
   };
 
@@ -66,7 +81,7 @@ export function Player({ spawn, camera, onRef }: Props) {
     const offJump = onEdge("jump", () => {
       const b = bodyRef.current;
       if (!b) return;
-      b.applyImpulse({ x: 0, y: JUMP_IMPULSE, z: 0 }, true);
+      verticalVelocity.current = JUMP_IMPULSE;
     });
     return () => {
       window.removeEventListener("mousedown", onDown);
@@ -81,6 +96,7 @@ export function Player({ spawn, camera, onRef }: Props) {
     if (!b) return;
     b.setTranslation({ x: spawn[0], y: spawn[1], z: spawn[2] }, true);
     b.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    verticalVelocity.current = 0;
   }, [spawn]);
 
   useEffect(() => {
@@ -88,14 +104,16 @@ export function Player({ spawn, camera, onRef }: Props) {
     return () => onRef?.(null);
   }, [onRef]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const b = bodyRef.current;
     if (!b) return;
     // Respawn if somehow we fall under the world
     const tt = b.translation();
+    setPlayerChunkPosition(tt.x, tt.z);
     if (tt.y < -20) {
       b.setTranslation({ x: spawn[0], y: spawn[1] + 4, z: spawn[2] }, true);
       b.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      verticalVelocity.current = 0;
     }
     const { forward, back, left, right, jump } = get();
     const vel = b.linvel();
@@ -122,9 +140,27 @@ export function Player({ spawn, camera, onRef }: Props) {
     const hit = world.castRay(ray, 1.2, true, undefined, undefined, undefined, b);
     const grounded = hit !== null && hit.timeOfImpact < 1.2;
 
-    b.setLinvel({ x: dx, y: vel.y, z: dz }, true);
+    const collider = colliderRef.current;
+    const controller = controllerRef.current;
+    const dt = Math.min(1 / 30, delta);
+    if (collider && controller) {
+      verticalVelocity.current += -20 * dt;
+      const desiredY = verticalVelocity.current * dt;
+      controller.computeColliderMovement(collider, { x: dx * dt, y: desiredY, z: dz * dt });
+      const corrected = controller.computedMovement();
+      const groundedNow = controller.computedGrounded() || grounded;
+      const next = b.translation();
+      b.setNextKinematicTranslation({
+        x: next.x + corrected.x,
+        y: next.y + corrected.y,
+        z: next.z + corrected.z,
+      });
+      if (groundedNow && verticalVelocity.current < 0) verticalVelocity.current = 0;
+    } else {
+      b.setLinvel({ x: dx, y: vel.y, z: dz }, true);
+    }
     if (jump && grounded) {
-      b.applyImpulse({ x: 0, y: JUMP_IMPULSE, z: 0 }, true);
+      verticalVelocity.current = JUMP_IMPULSE;
     }
 
     // Face movement direction
@@ -155,16 +191,16 @@ export function Player({ spawn, camera, onRef }: Props) {
         bodyRef.current = b;
         onRef?.(b);
       }}
-      type="dynamic"
+      type="kinematicPosition"
       colliders={false}
       enabledRotations={[false, false, false]}
       position={spawn}
       mass={1}
       linearDamping={0.5}
     >
-      <CapsuleCollider args={[0.5, 0.5]} friction={1.2} restitution={0} />
+      <CapsuleCollider ref={colliderRef} args={[0.55, 0.42]} friction={1.4} restitution={0} />
       <group ref={visualRef} position={[0, -1, 0]}>
-        <CharacterModel url="/models/characters/warrior.glb" scale={1} animation="idle" />
+        <CharacterModel url="/models/characters/warrior.glb" scale={1.05} animation="idle" />
         {/* Bow in hand */}
         <group position={[0.45, 1.1, 0.1]} rotation={[0, Math.PI / 2, Math.PI / 2]}>
           <Clone object={bow.scene} scale={0.5} castShadow />
