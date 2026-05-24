@@ -5,9 +5,9 @@ import { useGame } from "@/game/store";
 import { heightAt } from "@/game/terrain";
 
 export function Tree({ id, x, z }: { id: string; x: number; z: number }) {
-  const plateaus = useGame((s) => s.plateaus);
+  const tiles = useGame((s) => s.tiles);
   const highlight = useGame((s) => s.nearestInteractId === id);
-  const y = heightAt(x, z, plateaus);
+  const y = heightAt(x, z, tiles);
   const emissive = highlight ? "#a8ff7a" : "#000000";
   const intensity = highlight ? 0.7 : 0;
   const canopyRef = useRef<Group>(null);
