@@ -25,9 +25,10 @@ export type HutSlot = {
  * (to keep huts from blocking gate approach paths).
  */
 export const VILLAGE_GATE_ANGLES = [
-  Math.PI / 2,           // South (original)
-  0,                     // East
-  (5 * Math.PI) / 4,     // North-West
+  0,                     // East  (+X)
+  Math.PI / 2,           // South (+Z)
+  Math.PI,               // West  (-X)
+  (3 * Math.PI) / 2,     // North (-Z)
 ];
 
 /**
