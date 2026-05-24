@@ -332,7 +332,7 @@ export function Player({ spawn, camera, onRef }: Props) {
       <CapsuleCollider ref={colliderRef} args={[0.55, 0.42]} friction={1.4} restitution={0} />
       <group ref={visualRef} position={[0, -1, 0]}>
         <CharacterModel
-          url="/models/characters/men/Adventurer.glb"
+          url="/models/characters/men/HumanM_KI.glb"
           scale={1}
           getState={() => stateRef.current}
         />
