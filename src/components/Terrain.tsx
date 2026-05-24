@@ -55,9 +55,8 @@ export function Terrain({ data }: { data: TerrainData }) {
     geom.setIndex(indices);
     geom.computeVertexNormals();
 
-    // Heightfield expects a column-major nrows x ncols of heights at unit scale,
-    // multiplied by scale.y. Build a (size x size) array.
-    const hf = new Float32Array(size * size);
+    // Heightfield expects column-major heights at unit scale (multiplied by scale.y).
+    const hf: number[] = new Array(size * size);
     for (let j = 0; j < size; j++) {
       for (let i = 0; i < size; i++) {
         hf[i * size + j] = heights[j * size + i];
