@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Group, Mesh } from "three";
-import { RigidBody, type RapierRigidBody } from "@react-three/rapier";
+import { CuboidCollider, RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import { onEdge, playerPos } from "@/game/inputStore";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
 
@@ -18,7 +18,10 @@ function mulberry32(seed: number) {
 
 function Hut({ position, rotation }: { position: [number, number, number]; rotation: number }) {
   return (
-    <RigidBody type="fixed" colliders="cuboid" position={position} rotation={[0, rotation, 0]}>
+    <RigidBody type="fixed" colliders={false} position={position} rotation={[0, rotation, 0]}>
+      {/* Single tight collider matching the wall box — keeps players from
+          bumping the invisible roof overhang or door plane. */}
+      <CuboidCollider args={[1.2, 0.9, 1.0]} position={[0, 0.9, 0]} friction={1.2} />
       {/* Base log walls */}
       <mesh castShadow receiveShadow position={[0, 0.9, 0]}>
         <boxGeometry args={[2.4, 1.8, 2.0]} />
