@@ -5,6 +5,7 @@ import { Scene } from "@/components/game/Scene";
 import { RoomBar } from "@/components/hud/RoomBar";
 import { TouchControls } from "@/components/hud/TouchControls";
 import { useMultiplayer } from "@/game/multiplayer";
+import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/play")({
   head: () => ({
@@ -41,6 +42,7 @@ function PlayPage() {
           <HUD />
           <TouchControls />
           {room && <RoomBar code={room} />}
+          <Toaster position="top-center" richColors closeButton />
         </>
       ) : (
         <div className="flex h-full w-full items-center justify-center text-white/60">

@@ -46,6 +46,13 @@ export type Gate = {
 export type Phase = "day" | "night";
 export type Status = "playing" | "won" | "lost";
 
+export type AttackFx = {
+  weapon: "sword" | "bow" | "hammer" | "fists";
+  step: 0 | 1 | 2;
+  startedAt: number; // performance.now()
+  duration: number; // ms
+};
+
 export type Inventory = {
   wood: number;
   stone: number;
@@ -83,6 +90,11 @@ type GameState = {
   // Vendor UI
   openVendor: "smith" | "shaman" | null;
 
+  // Combat fx
+  attackFx: AttackFx | null;
+  comboStep: 0 | 1 | 2;
+  lastAttackAt: number;
+
   // Multiplayer
   selfId: string | null;
   isHost: boolean;
@@ -112,6 +124,7 @@ type GameState = {
   setOpenVendor: (v: "smith" | "shaman" | null) => void;
   addInventory: (patch: Partial<Inventory>) => void;
   setBossSpawned: (b: boolean) => void;
+  triggerAttackFx: (weapon: AttackFx["weapon"]) => void;
 
   setMultiplayer: (info: { selfId: string; roomCode: string; name: string; color: string }) => void;
   setHost: (isHost: boolean) => void;
@@ -162,6 +175,9 @@ function freshState(seed: number) {
     toSpawnThisNight: 0,
     bossSpawned: false,
     openVendor: null as null | "smith" | "shaman",
+    attackFx: null as AttackFx | null,
+    comboStep: 0 as 0 | 1 | 2,
+    lastAttackAt: 0,
   };
 }
 
@@ -363,6 +379,27 @@ export const useGame = create<GameState>((set, get) => ({
     set((s) => ({ inventory: { ...s.inventory, ...patch } })),
 
   setBossSpawned: (bossSpawned) => set({ bossSpawned }),
+
+  triggerAttackFx: (weapon) =>
+    set((s) => {
+      const now =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
+      const within = now - s.lastAttackAt < 1200;
+      const step = (within ? ((s.comboStep + 1) % 3) : 0) as 0 | 1 | 2;
+      // Per-weapon attack duration
+      const dur =
+        weapon === "hammer" ? 520 : weapon === "bow" ? 380 : 340;
+      return {
+        attackFx: {
+          weapon,
+          step,
+          startedAt: now,
+          duration: dur,
+        },
+        comboStep: step,
+        lastAttackAt: now,
+      };
+    }),
 
   setMultiplayer: ({ selfId, roomCode, name, color }) =>
     set({ selfId, roomCode, selfName: name, selfColor: color }),

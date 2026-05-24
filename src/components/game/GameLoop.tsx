@@ -32,6 +32,14 @@ import {
 } from "@/game/weapons";
 import { SHAMAN_POS, SMITH_POS } from "@/game/constants";
 
+function equippedWeapon(w: { sword: number; bow: number; hammer: number }): "sword" | "bow" | "hammer" | "fists" {
+  const max = Math.max(w.sword, w.bow, w.hammer);
+  if (max === 0) return "fists";
+  if (w.sword >= w.bow && w.sword >= w.hammer) return "sword";
+  if (w.hammer >= w.bow) return "hammer";
+  return "bow";
+}
+
 const keys = new Set<string>();
 
 function gatePos(angle: number) {
@@ -180,6 +188,7 @@ export function GameLoop() {
             damageMul: damageMultiplier(s.inventory.weapons),
             range,
           });
+          s.triggerAttackFx(equippedWeapon(s.inventory.weapons));
           s.setHeroAttackCd(HERO_ATTACK_COOLDOWN);
         }
       }
@@ -201,6 +210,7 @@ export function GameLoop() {
           damageMul: damageMultiplier(s.inventory.weapons),
           range: HERO_ATTACK_RANGE * rangeMultiplier(s.inventory.weapons),
         });
+        s.triggerAttackFx(equippedWeapon(s.inventory.weapons));
         s.setHeroAttackCd(HERO_ATTACK_COOLDOWN);
       }
     }
