@@ -9,6 +9,8 @@ import {
   type WeaponKind,
 } from "@/game/weapons";
 import { dispatchAction } from "@/game/multiplayer";
+import { toast } from "sonner";
+import { useEffect, useRef } from "react";
 
 export function ShopPanel() {
   const openVendor = useGame((s) => s.openVendor);
@@ -16,6 +18,39 @@ export function ShopPanel() {
   const inventory = useGame((s) => s.inventory);
   const day = useGame((s) => s.day);
   const phase = useGame((s) => s.phase);
+
+  // Toast when weapon tier increases or hp/ward goes up after a shaman buy.
+  const prevWeapons = useRef(inventory.weapons);
+  const prevHp = useRef(useGame.getState().heroHp);
+  const prevWard = useRef(inventory.seedWard);
+  useEffect(() => {
+    const w = inventory.weapons;
+    (["sword", "bow", "hammer"] as const).forEach((k) => {
+      if (w[k] > prevWeapons.current[k]) {
+        toast.success(
+          `Purchased ${WEAPON_LABELS[k][w[k] as 1 | 2 | 3]} (T${w[k]})`,
+        );
+      }
+    });
+    prevWeapons.current = w;
+  }, [inventory.weapons]);
+  useEffect(() => {
+    if (inventory.seedWard > prevWard.current) {
+      toast.success(`Seed Ward applied (+${inventory.seedWard - prevWard.current} Seed HP)`);
+    }
+    prevWard.current = inventory.seedWard;
+  }, [inventory.seedWard]);
+  // Detect mead via HP jumping while shop open
+  useEffect(() => {
+    const unsub = useGame.subscribe((s) => {
+      if (s.heroHp > prevHp.current && s.openVendor === "shaman") {
+        toast.success(`Drank Healing Mead (+${Math.round(s.heroHp - prevHp.current)} HP)`);
+      }
+      prevHp.current = s.heroHp;
+    });
+    return unsub;
+  }, []);
+
   if (!openVendor) return null;
 
   const closedAtNight = phase === "night";
@@ -54,32 +89,37 @@ export function ShopPanel() {
                     const afford = canAfford(w.cost, inventory);
                     const disabled = owned || needsPrev || locked || !afford;
                     return (
-                      <button
+                      <div
                         key={w.tier}
-                        disabled={disabled}
-                        onClick={() =>
-                          dispatchAction({
-                            type: "buy-weapon",
-                            kind,
-                            tier: w.tier,
-                          })
-                        }
-                        className="rounded bg-slate-700 px-2 py-2 text-left text-xs hover:bg-slate-600 disabled:opacity-40"
+                        className="flex flex-col gap-1 rounded bg-slate-800 p-2 text-xs"
                       >
                         <div className="font-semibold">
                           T{w.tier} {WEAPON_LABELS[kind][w.tier]}
                         </div>
                         <div className="text-white/60">{formatCost(w.cost)}</div>
-                        {owned && (
-                          <div className="text-emerald-300">Owned</div>
+                        {owned ? (
+                          <div className="mt-auto rounded bg-emerald-700/60 px-2 py-1 text-center font-semibold text-emerald-100">
+                            ✓ Owned
+                          </div>
+                        ) : (
+                          <button
+                            disabled={disabled}
+                            onClick={() => {
+                              if (disabled) return;
+                              dispatchAction({ type: "buy-weapon", kind, tier: w.tier });
+                            }}
+                            className="mt-auto rounded bg-emerald-600 px-2 py-1 font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600 disabled:text-white/40"
+                          >
+                            {needsPrev
+                              ? `Needs T${w.tier - 1}`
+                              : locked
+                                ? `Day ${w.minDay}+`
+                                : !afford
+                                  ? "Can't afford"
+                                  : "Buy"}
+                          </button>
                         )}
-                        {!owned && needsPrev && (
-                          <div className="text-amber-400">Needs T{w.tier - 1}</div>
-                        )}
-                        {!owned && !needsPrev && locked && (
-                          <div className="text-amber-400">Day {w.minDay}+</div>
-                        )}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -93,18 +133,25 @@ export function ShopPanel() {
                 const c = SHAMAN_COSTS[item];
                 const afford = canAfford(c, inventory);
                 return (
-                  <button
+                  <div
                     key={item}
-                    disabled={!afford}
-                    onClick={() => dispatchAction({ type: "buy-shaman", item })}
-                    className="flex w-full items-center justify-between rounded bg-slate-700 px-3 py-2 text-sm hover:bg-slate-600 disabled:opacity-40"
+                    className="flex items-center justify-between gap-3 rounded bg-slate-800 px-3 py-2 text-sm"
                   >
-                    <span>
-                      <span className="font-semibold">{c.label}</span>{" "}
-                      <span className="text-white/60">— {c.desc}</span>
-                    </span>
-                    <span className="text-xs text-white/70">{formatCost(c)}</span>
-                  </button>
+                    <div className="flex flex-col">
+                      <span className="font-semibold">{c.label}</span>
+                      <span className="text-xs text-white/60">{c.desc}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-white/70">{formatCost(c)}</span>
+                      <button
+                        disabled={!afford}
+                        onClick={() => dispatchAction({ type: "buy-shaman", item })}
+                        className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-600 disabled:text-white/40"
+                      >
+                        {afford ? "Buy" : "Can't afford"}
+                      </button>
+                    </div>
+                  </div>
                 );
               },
             )}
