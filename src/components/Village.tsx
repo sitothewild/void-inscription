@@ -493,7 +493,7 @@ export function Village({ data }: { data: TerrainData }) {
         <FenceRail key={i} position={r.pos} rotation={r.rot} length={r.length} y={r.y} />
       ))}
       {VILLAGE_GATE_ANGLES.map((angle, i) => (
-        <Gate key={i} data={data} radius={fence.radius} angle={angle} />
+        <Gate key={i} data={data} radius={fence.radius} angle={angle} index={i} />
       ))}
       {towers.map((t, i) => (
         <WatchTower key={i} position={t.pos} rotation={t.rot} />
