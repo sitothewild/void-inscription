@@ -10,6 +10,7 @@ import {
   PlaneGeometry,
   Vector2,
 } from "three";
+// keep Vector2 import used by shader uniform
 import { useGame } from "@/game/store";
 import { ISLAND_RADIUS, VILLAGE_RADIUS } from "@/game/constants";
 import { heightAt, isOnRamp, isValidResourceSpot } from "@/game/terrain";
