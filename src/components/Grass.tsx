@@ -39,7 +39,13 @@ export function Grass({ data, count = 6000, villageRadius }: Props) {
   const { geometry, instances } = useMemo(() => {
     const geo = new PlaneGeometry(0.18, 0.55, 1, 3);
     geo.translate(0, 0.275, 0);
-    // Bend top vertices forward weight via attribute (y position used in shader)
+    // Point normals straight up so blades catch sun light instead of
+    // rendering near-black when their plane faces sideways.
+    const normals = geo.attributes.normal as BufferAttribute;
+    for (let i = 0; i < normals.count; i++) {
+      normals.setXYZ(i, 0, 1, 0);
+    }
+    normals.needsUpdate = true;
 
     const rng = mulberry32(1337);
     const dummy = new Object3D();
