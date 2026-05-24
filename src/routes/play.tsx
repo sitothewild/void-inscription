@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { HUD } from "@/components/hud/HUD";
 import { Scene } from "@/components/game/Scene";
 import { RoomBar } from "@/components/hud/RoomBar";
+import { TouchControls } from "@/components/hud/TouchControls";
 import { useMultiplayer } from "@/game/multiplayer";
 
 export const Route = createFileRoute("/play")({
@@ -38,6 +39,7 @@ function PlayPage() {
         <>
           <Scene />
           <HUD />
+          <TouchControls />
           {room && <RoomBar code={room} />}
         </>
       ) : (
