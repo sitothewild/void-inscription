@@ -95,21 +95,32 @@ function RampTile({
 
 export function Terrain() {
   const tiles = useGame((s) => s.tiles);
-  const matRef = useRef<TriplanarToonMaterial | null>(null);
-  if (!matRef.current) matRef.current = createTriplanarToon();
-  const mat = matRef.current;
+  // One material per layer so CameraFade can dim only upper layers.
+  const matsRef = useRef<Map<number, TriplanarToonMaterial> | null>(null);
+  if (!matsRef.current) matsRef.current = new Map();
+  const getMat = (layer: number) => {
+    const cache = matsRef.current!;
+    let m = cache.get(layer);
+    if (!m) {
+      m = createTriplanarToon();
+      cache.set(layer, m);
+    }
+    return m;
+  };
 
   useFrame((_, dt) => {
-    mat.uniforms.uTime.value += dt;
+    matsRef.current!.forEach((m) => {
+      m.uniforms.uTime.value += dt;
+    });
   });
 
   return (
     <group>
       {tiles.map((t, i) =>
         t.kind === "slab" ? (
-          <SlabTile key={`s${i}`} tile={t} material={mat} />
+          <SlabTile key={`s${i}`} tile={t} material={getMat(t.layer)} />
         ) : (
-          <RampTile key={`r${i}`} tile={t} material={mat} />
+          <RampTile key={`r${i}`} tile={t} material={getMat(t.layer)} />
         ),
       )}
     </group>
