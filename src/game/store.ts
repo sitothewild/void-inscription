@@ -11,6 +11,7 @@ import {
   WAVE_GROWTH,
 } from "./constants";
 import { generateWorld, type Resource } from "./world";
+import { generatePlateaus, type Plateau } from "./terrain";
 import type { RemotePlayerState, Snapshot } from "@/lib/net/codec";
 import {
   WEAPONS,
@@ -82,6 +83,8 @@ type GameState = {
   resources: Resource[];
   enemies: Enemy[];
   inventory: Inventory;
+  plateaus: Plateau[];
+  nearestInteractId: string | null;
 
   spawnedThisNight: number;
   toSpawnThisNight: number;
@@ -125,6 +128,7 @@ type GameState = {
   addInventory: (patch: Partial<Inventory>) => void;
   setBossSpawned: (b: boolean) => void;
   triggerAttackFx: (weapon: AttackFx["weapon"]) => void;
+  setNearestInteractId: (id: string | null) => void;
 
   setMultiplayer: (info: { selfId: string; roomCode: string; name: string; color: string }) => void;
   setHost: (isHost: boolean) => void;
@@ -155,6 +159,7 @@ function freshInventory(): Inventory {
 }
 
 function freshState(seed: number) {
+  const plateaus = generatePlateaus(seed);
   return {
     seed,
     status: "playing" as Status,
@@ -168,7 +173,9 @@ function freshState(seed: number) {
     heroAttackCd: 0,
     seedHp: SEED_MAX_HP,
     gates: freshGates(),
-    resources: generateWorld(seed),
+    resources: generateWorld(seed, plateaus),
+    plateaus,
+    nearestInteractId: null as string | null,
     enemies: [] as Enemy[],
     inventory: freshInventory(),
     spawnedThisNight: 0,
@@ -374,6 +381,8 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   setOpenVendor: (openVendor) => set({ openVendor }),
+
+  setNearestInteractId: (nearestInteractId) => set({ nearestInteractId }),
 
   addInventory: (patch) =>
     set((s) => ({ inventory: { ...s.inventory, ...patch } })),
