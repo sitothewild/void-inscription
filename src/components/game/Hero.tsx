@@ -21,37 +21,36 @@ function readFx() {
 // Animation curves per weapon + combo step. Each returns local rotations
 // for the right arm + the weapon mesh. Step 0/1/2 are the three combos.
 function swingCurve(weapon: string, step: number, t: number) {
-  // Wind-up then strike: arm raises BEHIND, then chops FORWARD past rest.
-  // Returned values are local rotations on the right arm + weapon group.
-  //   armX > 0  → arm forward (toward +Z, hero's facing direction)
-  //   armX < 0  → arm back (wind-up)
-  // Curve: first 30% windup to negative, then 70% forward strike to positive.
-  const wind = t < 0.3 ? t / 0.3 : 1 - (t - 0.3) / 0.7;
-  const strike = t < 0.3 ? 0 : Math.sin(((t - 0.3) / 0.7) * Math.PI);
+  // Hero faces local +Z. The right arm hangs at local -Y.
+  // Three.js rotation.x sign:  positive X rotation maps -Y → -Z (backward, windup).
+  //                            negative X rotation maps -Y → +Z (FORWARD, the strike).
+  // So windup uses POSITIVE armX; the forward chop uses NEGATIVE armX with greater magnitude.
+  const wind = t < 0.25 ? t / 0.25 : 1 - (t - 0.25) / 0.75;
+  const strike = t < 0.25 ? 0 : Math.sin(((t - 0.25) / 0.75) * Math.PI);
   if (weapon === "sword") {
     if (step === 0)
-      return { armX: -0.6 * wind + 2.0 * strike, armZ: -0.3 * strike, weaponZ: 0 };
+      return { armX: 0.6 * wind - 2.0 * strike, armZ: 0.3 * strike, weaponZ: 0 };
     if (step === 1)
-      return { armX: -0.6 * wind + 2.0 * strike, armZ: 0.3 * strike, weaponZ: 0 };
-    return { armX: -0.8 * wind + 2.4 * strike, armZ: 0, weaponZ: 0 }; // overhead chop
+      return { armX: 0.6 * wind - 2.0 * strike, armZ: -0.3 * strike, weaponZ: 0 };
+    return { armX: 0.9 * wind - 2.4 * strike, armZ: 0, weaponZ: 0 }; // overhead chop
   }
   if (weapon === "hammer") {
     if (step === 0)
-      return { armX: -0.7 * wind + 2.2 * strike, armZ: -0.2 * strike, weaponZ: 0 };
+      return { armX: 0.7 * wind - 2.2 * strike, armZ: 0.2 * strike, weaponZ: 0 };
     if (step === 1)
-      return { armX: -0.7 * wind + 2.2 * strike, armZ: 0.2 * strike, weaponZ: 0 };
-    return { armX: -1.0 * wind + 2.6 * strike, armZ: 0, weaponZ: 0 }; // ground slam
+      return { armX: 0.7 * wind - 2.2 * strike, armZ: -0.2 * strike, weaponZ: 0 };
+    return { armX: 1.1 * wind - 2.6 * strike, armZ: 0, weaponZ: 0 }; // ground slam
   }
   if (weapon === "bow") {
     // Draw arm back, hold, release forward briefly.
     const draw = Math.min(1, t * 2.5);
     const release = t > 0.55 ? Math.sin(((t - 0.55) / 0.45) * Math.PI) : 0;
-    return { armX: -1.0 * draw + 0.6 * release, armZ: 0, weaponZ: 0 };
+    return { armX: 1.0 * draw - 0.6 * release, armZ: 0, weaponZ: 0 };
   }
   // Fists — quick jabs forward.
-  if (step === 0) return { armX: -0.3 * wind + 1.8 * strike, armZ: 0, weaponZ: 0 };
-  if (step === 1) return { armX: -0.3 * wind + 1.8 * strike, armZ: 0.3 * strike, weaponZ: 0 };
-  return { armX: -0.5 * wind + 2.2 * strike, armZ: -0.2 * strike, weaponZ: 0 };
+  if (step === 0) return { armX: 0.3 * wind - 1.8 * strike, armZ: 0, weaponZ: 0 };
+  if (step === 1) return { armX: 0.3 * wind - 1.8 * strike, armZ: -0.3 * strike, weaponZ: 0 };
+  return { armX: 0.5 * wind - 2.2 * strike, armZ: 0.2 * strike, weaponZ: 0 };
 }
 
 export function Hero() {
