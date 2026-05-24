@@ -6,6 +6,12 @@ import { Portal } from "./Portal";
 import { Particles } from "./Particles";
 import { usePortalTrigger } from "@/hooks/usePortalTrigger";
 
+const LIGHTING_PRESETS = [
+  { name: "moon", bg: "#111827", fog: "#1b2940", ambient: 0.55, hemi: ["#9dbbff", "#172033"], sun: [0, 24, -18], sunColor: "#bcd4ff", sunPower: 1.2 },
+  { name: "dusk", bg: "#2d1f33", fog: "#4b2942", ambient: 0.5, hemi: ["#ffb06a", "#2e2140"], sun: [-18, 14, 16], sunColor: "#ff9960", sunPower: 1.6 },
+  { name: "day", bg: "#6f96bf", fog: "#8fb5d7", ambient: 0.7, hemi: ["#cfeaff", "#31402f"], sun: [20, 30, 10], sunColor: "#fff4d0", sunPower: 2.0 },
+] as const;
+
 function mulberry32(seed: number) {
   let a = seed >>> 0;
   return function () {
@@ -34,6 +40,10 @@ const TUNNEL_RADIUS = 9;
 
 export function Level2({ spawn, onEnterPortal }: Props) {
   const playerRef = useRef<RapierRigidBody | null>(null);
+  const lighting = useMemo(
+    () => LIGHTING_PRESETS[Math.floor(Math.random() * LIGHTING_PRESETS.length)],
+    [],
+  );
 
   const crystals = useMemo<Crystal[]>(() => {
     const rng = mulberry32(999);
@@ -75,12 +85,18 @@ export function Level2({ spawn, onEnterPortal }: Props) {
 
   return (
     <>
-      <color attach="background" args={["#06080f"]} />
-      <fog attach="fog" args={["#0a1018", 8, 55]} />
+      <color attach="background" args={[lighting.bg]} />
+      <fog attach="fog" args={[lighting.fog, 14, 70]} />
 
-      <ambientLight intensity={0.1} />
+      <ambientLight intensity={lighting.ambient} />
+      <hemisphereLight args={[lighting.hemi[0], lighting.hemi[1], 1.2]} />
+      <directionalLight
+        position={lighting.sun as unknown as [number, number, number]}
+        color={lighting.sunColor}
+        intensity={lighting.sunPower}
+      />
       {lightPositions.map((p, i) => (
-        <pointLight key={i} position={p} color={"#20ffaa"} intensity={12} distance={22} />
+        <pointLight key={i} position={p} color={"#20ffaa"} intensity={8} distance={26} />
       ))}
 
       {/* Floor */}
