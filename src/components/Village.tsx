@@ -41,6 +41,13 @@ function Hut({ position, rotation }: { position: [number, number, number]; rotat
   );
 }
 
+/** Shared gate dimensions so fence stitching and door geometry agree. */
+const GATE = {
+  postX: 4.0,
+  /** Half-width of each door — two doors cover [-2*half, +2*half] when closed. */
+  doorHalf: 2.0,
+};
+
 function FencePost({
   position,
   scale = 1,
@@ -87,9 +94,9 @@ function FenceRail({
 function Gate({ data, radius }: { data: TerrainData; radius: number }) {
   const z = radius;
   const y = data.sampleWorldY(0, z);
-  // Gate clearance: ~8m wide opening, two 3m doors with a small center seam.
-  const POST_X = 4.0;
-  const DOOR_HALF = 1.5; // door width = 3.0
+  // Gate clearance: 8m wide opening, two 4m doors that fully close.
+  const POST_X = GATE.postX;
+  const DOOR_HALF = GATE.doorHalf;
   const posts: Array<[number, number, number]> = [
     [-POST_X, data.sampleWorldY(-POST_X, z) + 0.9, z],
     [POST_X, data.sampleWorldY(POST_X, z) + 0.9, z],
