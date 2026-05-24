@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { RigidBody, HeightfieldCollider } from "@react-three/rapier";
+import { RigidBody, HeightfieldCollider, CuboidCollider } from "@react-three/rapier";
 import {
   BufferAttribute,
   BufferGeometry,
@@ -55,18 +55,16 @@ export function Terrain({ data }: { data: TerrainData }) {
     geom.setIndex(indices);
     geom.computeVertexNormals();
 
-    // Heightfield expects column-major heights at unit scale (multiplied by scale.y).
-    const hf: number[] = new Array(size * size);
-    for (let j = 0; j < size; j++) {
-      for (let i = 0; i < size; i++) {
-        hf[i * size + j] = heights[j * size + i];
-      }
-    }
+    // Rapier heightfield: heights[i + j*nrows] at (i*sx/(nrows-1), j*sz/(ncols-1)).
+    // Our mesh stores heights[j*size + i] (z-outer, x-inner) — same layout as Rapier expects.
+    const hf: number[] = Array.from(heights);
     return { geometry: geom, heightArray: hf };
   }, [data]);
 
   const { size, worldSize, maxHeight } = data;
   const segments = size - 1;
+  const half = worldSize / 2;
+  const wallH = maxHeight + 8;
 
   return (
     <>
@@ -81,7 +79,17 @@ export function Terrain({ data }: { data: TerrainData }) {
             heightArray,
             { x: worldSize, y: maxHeight, z: worldSize },
           ]}
+          friction={1.2}
         />
+      </RigidBody>
+      {/* Invisible world-border walls so you can't fall off the edge */}
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[half, wallH, 1]} position={[0, wallH, -half - 1]} />
+        <CuboidCollider args={[half, wallH, 1]} position={[0, wallH, half + 1]} />
+        <CuboidCollider args={[1, wallH, half]} position={[-half - 1, wallH, 0]} />
+        <CuboidCollider args={[1, wallH, half]} position={[half + 1, wallH, 0]} />
+        {/* Kill-floor catcher far below */}
+        <CuboidCollider args={[half + 4, 0.5, half + 4]} position={[0, -8, 0]} />
       </RigidBody>
     </>
   );
