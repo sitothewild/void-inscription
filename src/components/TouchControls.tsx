@@ -217,7 +217,7 @@ export function TouchControls() {
           size={84}
           color="#ffb060"
           icon={<Crosshair size={36} />}
-          onPress={() => emitEdge("attack")}
+          onPress={() => emitEdge("attackDown")}
           onRelease={() => emitEdge("attackUp")}
           style={{ right: 28, bottom: 28 }}
         />
