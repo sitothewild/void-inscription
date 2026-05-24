@@ -24,7 +24,7 @@ type Props = {
 
 export function Level1({ spawn, onEnterPortal }: Props) {
   // Bigger world: 200m across, more detail, taller peaks
-  const terrain = useProceduralTerrain(42, 200, 200, 18, 8);
+  const terrain = useProceduralTerrain(42, 200, 200, 18, 14);
   const playerRef = useRef<RapierRigidBody | null>(null);
 
   const portals = useMemo(() => {
