@@ -1,70 +1,128 @@
+# Milestone 3 — Gated Village, Vendors & Tiered Weapons
 
-# Milestone 2 — Online Co-op
+A walled village in the center protects the Seed of Yggdrasil. Vikings spend resources at vendors to upgrade gear across three tiers, where each tier unlocks a passive **Link Ability** that synergizes with the others.
 
-## Goal
+---
 
-Let 2–4 players share a single run via a 6-character room code. Host's browser owns the world (enemies, resources, Seed, day/night); other clients send their inputs and render the host's snapshot.
+## 1. The Village
 
-## Architecture
+A hexagonal palisade around the Seed at world origin.
 
-- Enable Lovable Cloud. Use Supabase **Realtime only** (no DB writes during play — keeps latency low and avoids RLS friction).
-- One channel per room: `room:{CODE}`.
-- **Anonymous auth** so each tab has a stable `user_id` for Presence.
-- Two message kinds on the channel:
-  - **broadcast `input`** — clients → host, ~15 Hz: `{ heroX, heroZ, facing, attacking }`.
-  - **broadcast `snapshot`** — host → everyone, ~12 Hz: world delta (`players[]`, `enemies[]`, `resources[]`, `seedHp`, `phase`, `phaseTime`, `day`, `status`).
-  - **broadcast `event`** — one-shots: `gather`, `craft`, `chat`, `joined`, `left`.
-- **Presence** tracks `{ userId, name, color, isHost }`. Host = lowest userId in presence (deterministic; survives reconnects of non-hosts).
+```text
+          ╔══ Gate ══╗
+       ╔══╝          ╚══╗
+       ║   [Smith]       ║
+       ║                 ║
+   Gate    [SEED]   Gate
+       ║                 ║
+       ║   [Shaman]      ║
+       ╚══╗          ╔══╝
+          ╚══ Gate ══╝
+```
 
-## Routes
+**Structure**
+- Radius ~6 units, 6 wall segments, 4 cardinal gates.
+- Walls: invisible collider + GLTF palisade mesh. Block enemies and players.
+- Gates: open during **day**, auto-close **30 s before night**, reopen at dawn. HUD warning when closing.
+- Gate HP (200): enemies attack gates first if closed; a broken gate stays open until a vendor repairs it at dawn (costs wood).
+- Seed sits on a small altar inside; only damageable when enemies are *inside* the walls.
 
-- `/lobby` — Enter name, then **Create room** (generates code, navigates to `/play?room=XXXX&host=1`) or **Join room** (enter code, navigates to `/play?room=XXXX`).
-- `/play` — already exists. Reads `?room` search param. If present → multiplayer mode. If absent → unchanged single-player.
-- Landing `/` — add a "Play with friends" CTA next to the existing "Enter Midgard".
+**Suggested tweaks**
+- Add **1 watchtower** the player can climb for a damage boost (+25% attack range while standing on it).
+- Pile of **stockpile crates** inside — visual indicator of stored resources (purely cosmetic, scales with inventory).
 
-## Files
+---
 
-New:
-- `src/lib/net/room.ts` — channel setup, presence, broadcast helpers, host election.
-- `src/lib/net/codec.ts` — compact snapshot/input shapes.
-- `src/game/multiplayer.ts` — `useMultiplayer()` hook: subscribes to room, runs host loop OR client loop based on `isHost`.
-- `src/components/game/RemotePlayer.tsx` — render other players (reuse Hero geometry, different color + name label via drei `Text`).
-- `src/components/hud/Lobby.tsx` — name + room code UI.
-- `src/components/hud/RoomBar.tsx` — small overlay in `/play`: room code (click to copy), connected players, host indicator, leave button.
-- `src/routes/lobby.tsx` — lobby page.
+## 2. Vendors
 
-Modified:
-- `src/routes/play.tsx` — read `?room`, mount multiplayer hook when present, render `RemotePlayer`s.
-- `src/components/game/GameLoop.tsx` — split:
-  - Always: hero input + facing + local hero attack feedback.
-  - Host only: world tick (current logic — enemies, resources, day/night).
-  - Non-host: skip world tick; consume snapshots to update store (enemies, seed, day/night, resources). Local hero is predicted; remote heroes come from snapshots.
-- `src/game/store.ts` — add `players: Record<userId, RemotePlayerState>`, `selfId`, `isHost`, `roomCode`, plus `applySnapshot(snap)` and `applyInput(userId, input)` actions.
-- `src/routes/index.tsx` — add "Play with friends" secondary button → `/lobby`.
+Two NPCs spawn inside the village at fixed spots. Interact by walking into the radius and pressing **E** (or the new touch "Interact" button) to open a shop panel.
 
-## Game tweaks for co-op
+### Smith — Weapons & armor
+Sells gear in three tiers, gated by **Day reached** and **resource cost**.
 
-- Enemy aggro picks **nearest player** in sight, not just local hero.
-- Seed HP and day counter come from snapshot on clients; host runs the existing timer.
-- Resources: when host removes one, snapshot diff handles it; clients send a `gather` request, host validates range and applies.
-- Damage attribution stays simple (no scoring in M2).
+### Shaman — Consumables & utility
+- **Healing Mead** — restore 30 HP. Cost: 2 herb.
+- **Seed Ward** — +50 temporary Seed HP for one night. Cost: 5 stone.
+- **Wolf Totem** — summons 1 friendly wolf for the night. Cost: 1 fang + 3 wood.
 
-## Caveats I will surface in the UI
+Vendor shops are **closed at night** — plan ahead.
 
-- "Co-op is experimental. Best with 2–4 players in the same region. Expect 100–300 ms latency on combat."
-- If the host disconnects, the run ends (host migration is out of scope for M2).
-- No reconnect/resume — leaving the tab ends your participation.
+---
 
-## What's NOT in M2
+## 3. Tiered Weapons with Link Abilities
 
-- No persistence of runs to Postgres (deferred to M3 if needed for leaderboards).
-- No voice/text chat (could add text chat in M3; trivial on the same channel).
-- No matchmaking / public rooms — codes only.
-- No host migration.
+Each weapon has **3 tiers**. Owning a tier grants its **Link Ability** passively, and link abilities **stack** across weapons — that's the build identity.
 
-## Risks
+| Weapon | T1 | T2 | T3 | Link Ability (active at T1+) |
+|---|---|---|---|---|
+| **Sword** | Iron Sword — 1.5× dmg | Steel Sword — 2× dmg, +cleave | Yggdrasil Blade — 3× dmg, lifesteal 10% | **Edge** — basic attacks have wider arc |
+| **Bow** | Hunter Bow — ranged attacks | Longbow — 2× range, pierce 1 | Stormcaller Bow — chain-lightning between 3 enemies | **Sight** — reveals enemies through walls within 12u |
+| **Hammer** | Stone Hammer — slow, knockback | War Hammer — AOE on hit | Mjolnir — AOE + stun (1.5 s) | **Foundation** — gates take 50% less damage |
 
-- Lovable Cloud Realtime is a Postgres channel, not a game server. Snapshot rate stays ≤ 12 Hz to stay within message limits.
-- State drift: clients fully overwrite world state from each snapshot (no interpolation in M2). Remote players will look slightly jerky; the local hero stays smooth via client-side prediction.
+### Link synergy examples
+- **Sword + Hammer (T1+T1)** → "Berserker": +15% move speed at night.
+- **Bow + Hammer (T2+T2)** → "Warden": passive +1 wood per resource node, walls auto-repair 1 HP/s during day.
+- **All three at T3** → "Allfather": night length shortened 20%, +1 max HP regen/s. (End-game goal.)
 
-Approve and I'll enable Cloud, scaffold the lobby + room channel, and wire host/client modes into the existing scene.
+This turns weapon purchases into **build decisions**, not just numerical upgrades.
+
+### Tier gating
+| Tier | Unlocked from | Resource cost example (Sword) |
+|---|---|---|
+| T1 | Day 1 | 5 wood, 3 stone |
+| T2 | Day 3 (and own T1) | 10 stone, 2 fang |
+| T3 | Day 5 (and own T2) | 1 mythril (rare drop), 5 fang, 15 stone |
+
+**Mythril** is a new rare resource that drops from a **mini-boss enemy** that spawns once on night 3 — gives players a clear T3 path.
+
+---
+
+## 4. New Resources
+
+Add to existing wood/stone:
+- **Herb** — picked from green bushes (peaceful, day-only respawn).
+- **Fang** — drops from killed enemies (25% chance).
+- **Mythril** — guaranteed drop from mini-boss on night 3.
+
+---
+
+## 5. Multiplayer rules
+
+All host-authoritative (consistent with M2):
+- Gate state (open/closed, HP) lives in snapshot.
+- Vendor purchases: client sends `{ type: "purchase", vendor, itemId }` action; host validates resources, applies to **buying player's** inventory, broadcasts.
+- Weapon ownership is **per-player** (each Viking buys their own tier).
+- Link Abilities are **per-player passive** — affect that player only, except "Warden" wall regen which is global.
+
+---
+
+## 6. Suggested UX additions
+
+- **Vendor HUD panel** — bottom-center modal with tier rows, lock icons for unmet requirements, hover tooltip explaining the Link Ability.
+- **Owned-tiers HUD strip** — small icons under the HP bar showing which weapons/tiers you own and active link abilities.
+- **Gate countdown** — red ring on minimap-style indicator showing time until gates close.
+- **Build preview tooltip** — when hovering a weapon to buy, show which Link Abilities would activate if purchased.
+
+---
+
+## 7. Recommended cuts / open questions
+
+Things to decide before building:
+1. **Mini-boss on night 3** — yes, or random rare spawn instead?
+2. **Should vendors be killable by enemies?** (Recommend no — village is a safe core.)
+3. **Should T3 require defeating mini-boss vs. just owning T2?** (I'd vote: kill required, otherwise mythril is just a currency.)
+4. **Should we replace the current single "sword" inventory flag** with the new tier system, or run them in parallel during transition? (Recommend full migration — cleaner store.)
+
+---
+
+## 8. Build order (if approved)
+
+1. Village geometry + gate open/close logic + collisions.
+2. Resource expansion (herb, fang, mythril) + bush + mini-boss spawn.
+3. Weapon tier data + store rewrite (`inventory.weapons: { sword: 0|1|2|3, bow: ..., hammer: ... }`).
+4. Vendor NPCs + shop UI + purchase action through `dispatchAction`.
+5. Link Ability passive resolver (recomputed when weapons change).
+6. HUD: vendor panel, owned-tier strip, gate countdown.
+7. Multiplayer wiring: snapshot fields for gates + per-player weapons.
+
+Answer the open questions in §7 and I'll execute the build.

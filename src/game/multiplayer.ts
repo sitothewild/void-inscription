@@ -12,7 +12,6 @@ import { useGame } from "./store";
 import {
   ENEMY_MAX_HP,
   HERO_ATTACK_DAMAGE,
-  HERO_ATTACK_RANGE,
   HERO_MAX_HP,
 } from "./constants";
 
@@ -151,6 +150,7 @@ export function useMultiplayer(roomCode: string | null, name: string) {
           status: s.status,
           enemies: s.enemies,
           resources: s.resources,
+          gates: s.gates,
           players,
           inventory: s.inventory,
           seed: s.seed,
@@ -201,15 +201,19 @@ export function applyAction(from: string, action: ActionMsg) {
     s.reset();
     return;
   }
-  if (action.type === "craft") {
-    s.craft(action.item);
+  if (action.type === "buy-weapon") {
+    s.buyWeapon(action.kind, action.tier);
+    return;
+  }
+  if (action.type === "buy-shaman") {
+    s.buyShaman(action.item);
     return;
   }
   if (action.type === "attack") {
-    // Target nearest enemy in range of attacker position
-    const dmg = HERO_ATTACK_DAMAGE * (action.sword || s.inventory.sword ? 1.5 : 1);
+    const dmg = HERO_ATTACK_DAMAGE * action.damageMul;
+    const range = action.range;
     let bestE: string | null = null;
-    let bestD = HERO_ATTACK_RANGE;
+    let bestD = range;
     for (const e of s.enemies) {
       const d = Math.hypot(e.x - action.x, e.z - action.z);
       if (d < bestD) {
@@ -221,9 +225,8 @@ export function applyAction(from: string, action: ActionMsg) {
       s.damageEnemy(bestE, dmg);
       return;
     }
-    // Otherwise try a resource
     let bestR: string | null = null;
-    let bestRd = HERO_ATTACK_RANGE;
+    let bestRd = range;
     for (const r of s.resources) {
       const d = Math.hypot(r.x - action.x, r.z - action.z);
       if (d < bestRd) {
@@ -236,7 +239,6 @@ export function applyAction(from: string, action: ActionMsg) {
       const after = useGame.getState().resources.find((r) => r.id === bestR);
       if (after && after.hp <= 0) s.removeResource(bestR);
     }
-    // unused name to suppress lint
     void ENEMY_MAX_HP;
     void from;
   }

@@ -105,6 +105,15 @@ export function TouchControls() {
       >
         Attack
       </button>
+      <button
+        onTouchStart={(e) => {
+          e.preventDefault();
+          touchInput.interact = true;
+        }}
+        className="fixed bottom-36 right-10 z-30 flex h-16 w-16 touch-none select-none items-center justify-center rounded-full border-2 border-white/30 bg-amber-600/80 text-sm font-bold uppercase text-white shadow-xl active:scale-95"
+      >
+        Use
+      </button>
     </>
   );
 }

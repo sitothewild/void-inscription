@@ -3,34 +3,58 @@ import { useEffect, useRef } from "react";
 import { Vector3, Plane, Raycaster, Vector2 } from "three";
 import { useGame } from "@/game/store";
 import {
+  BOSS_DAMAGE,
+  BOSS_HP,
+  BOSS_SPAWN_NIGHT,
+  BOSS_SPEED,
   ENEMY_ATTACK_COOLDOWN,
   ENEMY_DAMAGE,
   ENEMY_MAX_HP,
   ENEMY_SIGHT,
   ENEMY_SPEED,
+  GATE_CLOSE_WARNING,
+  GATE_DAMAGE,
   HERO_ATTACK_COOLDOWN,
+  HERO_ATTACK_RANGE,
   HERO_SPEED,
   ISLAND_RADIUS,
+  NIGHT_DURATION,
+  VENDOR_INTERACT_RANGE,
+  VILLAGE_RADIUS,
 } from "@/game/constants";
 import { mulberry32 } from "@/game/rng";
 import { applyAction, dispatchAction, hostActionQueue } from "@/game/multiplayer";
 import { touchInput } from "@/game/touchInput";
+import {
+  computeLinks,
+  damageMultiplier,
+  rangeMultiplier,
+} from "@/game/weapons";
+import { SHAMAN_POS, SMITH_POS } from "@/game/constants";
 
-// Keyboard state (module-level so handlers + frame share)
 const keys = new Set<string>();
+
+function gatePos(angle: number) {
+  return { x: Math.cos(angle) * VILLAGE_RADIUS, z: Math.sin(angle) * VILLAGE_RADIUS };
+}
 
 export function GameLoop() {
   const { camera, gl } = useThree();
   const mouseWorld = useRef(new Vector3());
   const attackRequested = useRef(false);
+  const interactRequested = useRef(false);
   const plane = useRef(new Plane(new Vector3(0, 1, 0), 0));
   const raycaster = useRef(new Raycaster());
   const ndc = useRef(new Vector2());
   const rngRef = useRef(mulberry32(Date.now() & 0xffffffff));
+  const wardenAccum = useRef(0);
 
-  // Input
   useEffect(() => {
-    const down = (e: KeyboardEvent) => keys.add(e.key.toLowerCase());
+    const down = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      keys.add(k);
+      if (k === "e") interactRequested.current = true;
+    };
     const up = (e: KeyboardEvent) => keys.delete(e.key.toLowerCase());
     const blur = () => keys.clear();
     window.addEventListener("keydown", down);
@@ -43,7 +67,6 @@ export function GameLoop() {
     };
   }, []);
 
-  // Mouse → world position on y=0 plane
   useEffect(() => {
     const el = gl.domElement;
     const move = (e: MouseEvent) => {
@@ -70,14 +93,16 @@ export function GameLoop() {
     const dt = Math.min(dtRaw, 0.05);
     const s = useGame.getState();
     if (s.status !== "playing") return;
+    if (s.openVendor) return; // pause input while shop open
 
     const isMultiplayer = !!s.roomCode;
     const isAuthoritative = !isMultiplayer || s.isHost;
 
-    // ---- Phase timer (host or single-player)
     if (isAuthoritative) s.tickPhase(dt);
 
-    // ---- Hero movement
+    const links = computeLinks(s.inventory.weapons);
+
+    // Movement
     let dx = 0;
     let dz = 0;
     if (keys.has("w") || keys.has("arrowup")) dz -= 1;
@@ -89,21 +114,24 @@ export function GameLoop() {
       dz += touchInput.dz;
     }
     const len = Math.hypot(dx, dz);
+    const speedBonus =
+      s.phase === "night" && links.berserker ? HERO_SPEED * 0.15 : 0;
+    const speed = HERO_SPEED + speedBonus;
     let nx = s.heroX;
     let nz = s.heroZ;
     if (len > 0) {
       dx /= len;
       dz /= len;
-      nx = s.heroX + dx * HERO_SPEED * dt;
-      nz = s.heroZ + dz * HERO_SPEED * dt;
+      nx = s.heroX + dx * speed * dt;
+      nz = s.heroZ + dz * speed * dt;
       if (Math.hypot(nx, nz) > ISLAND_RADIUS - 1) {
-        // clamp to island edge
         const ang = Math.atan2(nz, nx);
         nx = Math.cos(ang) * (ISLAND_RADIUS - 1);
         nz = Math.sin(ang) * (ISLAND_RADIUS - 1);
       }
     }
-    // Facing: prefer mouse aim; on touch, face movement direction
+
+    // Facing
     let facing = s.heroFacing;
     if (touchInput.active && len > 0) {
       facing = Math.atan2(dx, dz);
@@ -114,7 +142,20 @@ export function GameLoop() {
     }
     s.setHero(nx, nz, facing);
 
-    // ---- Hero attack cooldown is always local for responsive UX
+    // Interact (E or touch)
+    if (touchInput.interact) {
+      touchInput.interact = false;
+      interactRequested.current = true;
+    }
+    if (interactRequested.current) {
+      interactRequested.current = false;
+      const dSmith = Math.hypot(nx - SMITH_POS.x, nz - SMITH_POS.z);
+      const dShaman = Math.hypot(nx - SHAMAN_POS.x, nz - SHAMAN_POS.z);
+      if (dSmith < VENDOR_INTERACT_RANGE) s.setOpenVendor("smith");
+      else if (dShaman < VENDOR_INTERACT_RANGE) s.setOpenVendor("shaman");
+    }
+
+    // Attack
     const cd = Math.max(0, s.heroAttackCd - dt);
     s.setHeroAttackCd(cd);
     if (touchInput.attack) {
@@ -129,52 +170,104 @@ export function GameLoop() {
           x: nx,
           z: nz,
           facing,
-          sword: s.inventory.sword,
+          damageMul: damageMultiplier(s.inventory.weapons),
+          range: HERO_ATTACK_RANGE * rangeMultiplier(s.inventory.weapons),
         });
         s.setHeroAttackCd(HERO_ATTACK_COOLDOWN);
       }
     }
 
-    // ---- Host-only: world simulation ----
     if (!isAuthoritative) return;
 
-    // Drain queued actions (from self in single-player, or from clients via network)
+    // ---- Drain actions
     while (hostActionQueue.length > 0) {
       const { from, action } = hostActionQueue.shift()!;
       applyAction(from, action);
     }
 
-    // ---- Night spawn
+    // ---- Gates: open/close timing
+    const after0 = useGame.getState();
+    if (after0.phase === "day") {
+      const shouldClose = after0.phaseTime <= GATE_CLOSE_WARNING;
+      for (const g of after0.gates) {
+        if (g.broken) continue;
+        if (shouldClose && g.open) after0.setGate(g.id, { open: false });
+        if (!shouldClose && !g.open) after0.setGate(g.id, { open: true });
+      }
+    } else {
+      // Night: keep gates closed unless broken
+      for (const g of after0.gates) {
+        if (!g.broken && g.open) after0.setGate(g.id, { open: false });
+      }
+    }
+
+    // Warden link: walls/gates self-heal during day
+    if (links.warden && after0.phase === "day") {
+      wardenAccum.current += dt;
+      if (wardenAccum.current >= 1) {
+        wardenAccum.current = 0;
+        for (const g of after0.gates) {
+          if (!g.broken && g.hp < 200) {
+            after0.setGate(g.id, { hp: Math.min(200, g.hp + 1) });
+          }
+        }
+      }
+    }
+
+    // ---- Mini-boss spawn on night 3
     if (
-      s.phase === "night" &&
-      s.spawnedThisNight < s.toSpawnThisNight &&
-      s.enemies.length < 25
+      after0.phase === "night" &&
+      after0.day === BOSS_SPAWN_NIGHT &&
+      !after0.bossSpawned &&
+      after0.phaseTime <= NIGHT_DURATION - 5
     ) {
-      // spawn rate: spread across first half of night
-      const totalToSpawn = s.toSpawnThisNight;
-      const elapsed = 120 - s.phaseTime;
+      const r = rngRef.current;
+      const ang = r() * Math.PI * 2;
+      after0.addEnemy({
+        id: `boss-${Date.now()}`,
+        x: Math.cos(ang) * (ISLAND_RADIUS - 1),
+        z: Math.sin(ang) * (ISLAND_RADIUS - 1),
+        hp: BOSS_HP,
+        maxHp: BOSS_HP,
+        target: "seed",
+        attackCd: 0,
+        kind: "boss",
+      });
+      useGame.setState({ bossSpawned: true });
+    }
+
+    // ---- Night grunt spawn
+    if (
+      after0.phase === "night" &&
+      after0.spawnedThisNight < after0.toSpawnThisNight &&
+      after0.enemies.length < 25
+    ) {
+      const totalToSpawn = after0.toSpawnThisNight;
+      const elapsed = NIGHT_DURATION - after0.phaseTime;
       const shouldHaveSpawned = Math.min(
         totalToSpawn,
         Math.floor((elapsed / 60) * totalToSpawn),
       );
-      if (s.spawnedThisNight < shouldHaveSpawned) {
+      if (after0.spawnedThisNight < shouldHaveSpawned) {
         const r = rngRef.current;
         const ang = r() * Math.PI * 2;
         const x = Math.cos(ang) * (ISLAND_RADIUS - 1);
         const z = Math.sin(ang) * (ISLAND_RADIUS - 1);
-        s.addEnemy({
+        after0.addEnemy({
           id: `e${Date.now()}-${Math.floor(r() * 1e6)}`,
           x,
           z,
           hp: ENEMY_MAX_HP,
+          maxHp: ENEMY_MAX_HP,
           target: "seed",
           attackCd: 0,
+          kind: "grunt",
         });
-        useGame.setState({ spawnedThisNight: s.spawnedThisNight + 1 });
+        useGame.setState({ spawnedThisNight: after0.spawnedThisNight + 1 });
       }
     }
 
-    // ---- Enemy AI (targets nearest player including remote)
+    // ---- Enemy AI ----
     const after = useGame.getState();
     const playerPositions: { id: string; x: number; z: number; isSelf: boolean }[] = [
       { id: after.selfId ?? "self", x: nx, z: nz, isSelf: true },
@@ -182,50 +275,82 @@ export function GameLoop() {
     for (const [id, p] of Object.entries(after.players)) {
       playerPositions.push({ id, x: p.x, z: p.z, isSelf: false });
     }
+
+    const closedGates = after.gates.filter((g) => !g.open && !g.broken);
+    const anyGateClosed = closedGates.length > 0;
+
     for (const e of after.enemies) {
-      // Aggro nearest player if in sight (night only), else target seed
-      let nearest: { x: number; z: number; isSelf: boolean } | null = null;
+      // Pick target: nearest player if visible, else seed (or gate if blocked)
+      let nearestPlayer: { x: number; z: number; isSelf: boolean } | null = null;
       let nd = ENEMY_SIGHT;
       if (after.phase === "night") {
         for (const p of playerPositions) {
           const d = Math.hypot(e.x - p.x, e.z - p.z);
           if (d < nd) {
             nd = d;
-            nearest = p;
+            nearestPlayer = p;
           }
         }
       }
-      const target = nearest
-        ? { x: nearest.x, z: nearest.z, kind: "hero" as const, isSelf: nearest.isSelf }
-        : { x: 0, z: 0, kind: "seed" as const, isSelf: false };
-      const dxE = target.x - e.x;
-      const dzE = target.z - e.z;
+
+      const enemyInside = Math.hypot(e.x, e.z) < VILLAGE_RADIUS;
+      let targetKind: "hero" | "seed" | "gate" = nearestPlayer ? "hero" : "seed";
+      let targetX = nearestPlayer ? nearestPlayer.x : 0;
+      let targetZ = nearestPlayer ? nearestPlayer.z : 0;
+      let targetGateId: string | null = null;
+
+      // If targeting something inside village and gate is closed and we're outside, head to nearest gate
+      const targetInside = Math.hypot(targetX, targetZ) < VILLAGE_RADIUS;
+      if (anyGateClosed && targetInside && !enemyInside) {
+        let bestGate = closedGates[0];
+        let bestD = Infinity;
+        for (const g of closedGates) {
+          const gp = gatePos(g.angle);
+          const d = Math.hypot(e.x - gp.x, e.z - gp.z);
+          if (d < bestD) {
+            bestD = d;
+            bestGate = g;
+          }
+        }
+        const gp = gatePos(bestGate.angle);
+        targetKind = "gate";
+        targetX = gp.x;
+        targetZ = gp.z;
+        targetGateId = bestGate.id;
+      }
+
+      const dxE = targetX - e.x;
+      const dzE = targetZ - e.z;
       const dE = Math.hypot(dxE, dzE);
-      const attackRange = target.kind === "seed" ? 2.2 : 1.4;
+      const attackRange =
+        targetKind === "seed" ? 2.2 : targetKind === "gate" ? 1.6 : 1.4;
+      const speed = e.kind === "boss" ? BOSS_SPEED : ENEMY_SPEED;
+      const damage = e.kind === "boss" ? BOSS_DAMAGE : ENEMY_DAMAGE;
       let newCd = Math.max(0, e.attackCd - dt);
       let ex = e.x;
       let ez = e.z;
       if (dE > attackRange) {
-        ex += (dxE / dE) * ENEMY_SPEED * dt;
-        ez += (dzE / dE) * ENEMY_SPEED * dt;
+        ex += (dxE / dE) * speed * dt;
+        ez += (dzE / dE) * speed * dt;
       } else if (newCd <= 0) {
-        if (target.kind === "hero") {
-          if (target.isSelf) {
-            after.damageHero(ENEMY_DAMAGE);
-          } else if (nearest) {
-            // damage remote player in store; snapshot will propagate hp
-            const cur = after.players[nearest && (playerPositions.find(p => p === nearest)?.id ?? "")];
-            // Simpler: find their id again
+        if (targetKind === "hero" && nearestPlayer) {
+          if (nearestPlayer.isSelf) {
+            after.damageHero(damage);
+          } else {
             const hitId = Object.entries(after.players).find(
-              ([, pp]) => pp.x === nearest!.x && pp.z === nearest!.z,
+              ([, pp]) => pp.x === nearestPlayer!.x && pp.z === nearestPlayer!.z,
             )?.[0];
             if (hitId) {
               const cp = after.players[hitId];
-              after.setPlayer(hitId, { ...cp, hp: Math.max(0, cp.hp - ENEMY_DAMAGE) });
+              after.setPlayer(hitId, { ...cp, hp: Math.max(0, cp.hp - damage) });
             }
-            void cur;
           }
-        } else after.damageSeed(ENEMY_DAMAGE);
+        } else if (targetKind === "gate" && targetGateId) {
+          const gateDmg = links.foundation ? GATE_DAMAGE * 0.5 : GATE_DAMAGE;
+          after.damageGate(targetGateId, gateDmg);
+        } else {
+          after.damageSeed(damage);
+        }
         newCd = ENEMY_ATTACK_COOLDOWN;
       }
       after.updateEnemy(e.id, { x: ex, z: ez, attackCd: newCd });

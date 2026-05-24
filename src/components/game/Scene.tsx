@@ -11,6 +11,9 @@ import { Rock } from "./Rock";
 import { Seed } from "./Seed";
 import { Tree } from "./Tree";
 import { RemotePlayer } from "./RemotePlayer";
+import { Village } from "./Village";
+import { Vendors } from "./Vendor";
+import { Herb } from "./Herb";
 
 function World() {
   const resources = useGame((s) => s.resources);
@@ -21,8 +24,10 @@ function World() {
       {resources.map((r) =>
         r.kind === "tree" ? (
           <Tree key={r.id} x={r.x} z={r.z} />
-        ) : (
+        ) : r.kind === "rock" ? (
           <Rock key={r.id} x={r.x} z={r.z} />
+        ) : (
+          <Herb key={r.id} x={r.x} z={r.z} />
         ),
       )}
       {enemies.map((e) => (
@@ -43,6 +48,8 @@ export function Scene() {
         <Lighting />
         <Ground />
         <Seed />
+      <Village />
+      <Vendors />
         <Hero />
         <World />
         <GameLoop />
