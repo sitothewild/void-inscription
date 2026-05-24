@@ -37,6 +37,7 @@ export function Player({ spawn, camera, onRef }: Props) {
   const targetLook = useRef(new Vector3());
   const facing = useRef(0);
   const lastShot = useRef(0);
+  const verticalVelocity = useRef(0);
   const bow = useGLTF("/models/items/bow.glb");
 
   useEffect(() => {
@@ -83,7 +84,7 @@ export function Player({ spawn, camera, onRef }: Props) {
     const offJump = onEdge("jump", () => {
       const b = bodyRef.current;
       if (!b) return;
-      b.setLinvel({ x: 0, y: JUMP_IMPULSE, z: 0 }, true);
+      verticalVelocity.current = JUMP_IMPULSE;
     });
     return () => {
       window.removeEventListener("mousedown", onDown);
@@ -105,7 +106,7 @@ export function Player({ spawn, camera, onRef }: Props) {
     return () => onRef?.(null);
   }, [onRef]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const b = bodyRef.current;
     if (!b) return;
     // Respawn if somehow we fall under the world
@@ -141,9 +142,10 @@ export function Player({ spawn, camera, onRef }: Props) {
 
     const collider = colliderRef.current;
     const controller = controllerRef.current;
-    const dt = Math.min(1 / 30, 1 / 60);
+    const dt = Math.min(1 / 30, delta);
     if (collider && controller) {
-      const desiredY = vel.y * dt;
+      verticalVelocity.current += -20 * dt;
+      const desiredY = verticalVelocity.current * dt;
       controller.computeColliderMovement(collider, { x: dx * dt, y: desiredY, z: dz * dt });
       const corrected = controller.computedMovement();
       const groundedNow = controller.computedGrounded() || grounded;
@@ -153,12 +155,12 @@ export function Player({ spawn, camera, onRef }: Props) {
         y: next.y + corrected.y,
         z: next.z + corrected.z,
       });
-      b.setLinvel({ x: dx, y: groundedNow && vel.y < 0 ? 0 : vel.y - 20 * dt, z: dz }, true);
+      if (groundedNow && verticalVelocity.current < 0) verticalVelocity.current = 0;
     } else {
       b.setLinvel({ x: dx, y: vel.y, z: dz }, true);
     }
     if (jump && grounded) {
-      b.setLinvel({ x: dx, y: JUMP_IMPULSE, z: dz }, true);
+      verticalVelocity.current = JUMP_IMPULSE;
     }
 
     // Face movement direction
