@@ -20,6 +20,7 @@ import { Terrain } from "./Terrain";
 import { WindField } from "./WindField";
 import { WindParticles } from "./WindParticles";
 import { SkyDome } from "./SkyDome";
+import { CameraFade } from "./CameraFade";
 
 function World() {
   const resources = useGame((s) => s.resources);
@@ -60,6 +61,7 @@ export function Scene() {
     >
       <Suspense fallback={null}>
         <IsoCamera />
+        <CameraFade />
         <SkyDome />
         <Lighting />
         <Physics gravity={[0, -22, 0]} timeStep={1 / 60}>
