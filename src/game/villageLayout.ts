@@ -20,24 +20,54 @@ export type HutSlot = {
 };
 
 /**
+ * Canonical gate angles around the village fence (radians; 0=+X east, π/2=+Z south).
+ * Shared by `Village` (to render gates + cut the fence) and `computeHutSlots`
+ * (to keep huts from blocking gate approach paths).
+ */
+export const VILLAGE_GATE_ANGLES = [
+  Math.PI / 2,           // South (original)
+  0,                     // East
+  (5 * Math.PI) / 4,     // North-West
+];
+
+/**
  * Canonical village hut layout. Shared by `Village` (to render the huts)
  * and `Vendors` (to anchor NPCs next to their assigned hut). Keep this in
  * one place so vendors never drift away from their owners.
  */
-export function computeHutSlots(): HutSlot[] {
+export function computeHutSlots(gateAngles: number[] = VILLAGE_GATE_ANGLES): HutSlot[] {
   const rng = mulberry32(99);
   const slots: HutSlot[] = [];
   const radius = 10;
-  const gateGap = Math.PI * 0.34;
-  const usable = Math.PI * 2 - gateGap;
-  const count = 6;
-  const start = Math.PI / 2 + gateGap / 2;
-  for (let i = 0; i < count; i++) {
-    const a = start + (i / (count - 1)) * usable + (rng() - 0.5) * 0.12;
-    const r = radius + (rng() - 0.5) * 1.2;
-    const x = Math.cos(a) * r;
-    const z = Math.sin(a) * r;
-    slots.push({ x, z, rotY: -a + Math.PI / 2, angle: a });
+  // Keep huts out of every gate's approach corridor (slightly wider than the
+  // gate opening so the path stays clear).
+  const gateHalf = Math.PI * 0.18;
+  const TAU = Math.PI * 2;
+  const gates = [...gateAngles]
+    .map((a) => ((a % TAU) + TAU) % TAU)
+    .sort((a, b) => a - b);
+  // Allowed arcs sit between consecutive gates (wrapping around).
+  const arcs: Array<{ start: number; len: number }> = [];
+  for (let i = 0; i < gates.length; i++) {
+    const start = gates[i] + gateHalf;
+    const nextRaw = gates[(i + 1) % gates.length];
+    const next = i + 1 >= gates.length ? nextRaw + TAU : nextRaw;
+    const end = next - gateHalf;
+    const len = end - start;
+    if (len > 0.2) arcs.push({ start, len });
+  }
+  const totalLen = arcs.reduce((s, a) => s + a.len, 0) || 1;
+  const totalCount = 6;
+  for (const arc of arcs) {
+    const n = Math.max(1, Math.round((totalCount * arc.len) / totalLen));
+    for (let i = 0; i < n; i++) {
+      const t = n === 1 ? 0.5 : i / (n - 1);
+      const a = arc.start + t * arc.len + (rng() - 0.5) * 0.08;
+      const r = radius + (rng() - 0.5) * 1.2;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      slots.push({ x, z, rotY: -a + Math.PI / 2, angle: a });
+    }
   }
   return slots;
 }

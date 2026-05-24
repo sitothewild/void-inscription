@@ -3,7 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { Group, Mesh } from "three";
 import { CuboidCollider, RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import { onEdge, playerPos } from "@/game/inputStore";
-import { computeHutSlots } from "@/game/villageLayout";
+import { computeHutSlots, VILLAGE_GATE_ANGLES } from "@/game/villageLayout";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
 
 function Hut({ position, rotation }: { position: [number, number, number]; rotation: number }) {
@@ -81,15 +81,34 @@ function FenceRail({
   );
 }
 
-function Gate({ data, radius }: { data: TerrainData; radius: number }) {
-  const z = radius;
-  const y = data.sampleWorldY(0, z);
+function Gate({
+  data,
+  radius,
+  angle,
+}: {
+  data: TerrainData;
+  radius: number;
+  angle: number;
+}) {
+  // Gate center on the fence circle.
+  const cx = Math.cos(angle) * radius;
+  const cz = Math.sin(angle) * radius;
+  // Tangent direction along the fence (used as the gate's local +X axis).
+  const tx = -Math.sin(angle);
+  const tz = Math.cos(angle);
+  // Y rotation so the gate's local +X aligns with (tx, 0, tz).
+  const baseRot = Math.atan2(-tz, tx);
+  const y = data.sampleWorldY(cx, cz);
   // Gate clearance: 8m wide opening, two 4m doors that fully close.
   const POST_X = GATE.postX;
   const DOOR_HALF = GATE.doorHalf;
+  const lpx = cx + tx * POST_X;
+  const lpz = cz + tz * POST_X;
+  const rpx = cx - tx * POST_X;
+  const rpz = cz - tz * POST_X;
   const posts: Array<[number, number, number]> = [
-    [-POST_X, data.sampleWorldY(-POST_X, z) + 0.9, z],
-    [POST_X, data.sampleWorldY(POST_X, z) + 0.9, z],
+    [lpx, data.sampleWorldY(lpx, lpz) + 0.9, lpz],
+    [rpx, data.sampleWorldY(rpx, rpz) + 0.9, rpz],
   ];
   const [open, setOpen] = useState(false);
   const leftRef = useRef<RapierRigidBody>(null);
@@ -101,33 +120,36 @@ function Gate({ data, radius }: { data: TerrainData; radius: number }) {
 
   useEffect(() => {
     return onEdge("action", () => {
-      const dx = playerPos.x - 0;
-      const dz = playerPos.z - z;
+      const dx = playerPos.x - cx;
+      const dz = playerPos.z - cz;
       if (dx * dx + dz * dz < INTERACT_R * INTERACT_R) {
         setOpen((o) => !o);
       }
     });
-  }, [z]);
+  }, [cx, cz]);
 
   useFrame((state, dt) => {
     const target = open ? 1 : 0;
     openProgress.current += (target - openProgress.current) * Math.min(1, dt * 4);
     const swing = openProgress.current * (Math.PI / 2);
+    // Compose base rotation with door swing about Y.
+    const lY = baseRot - swing;
+    const rY = baseRot + swing;
     leftRef.current?.setNextKinematicRotation({
       x: 0,
-      y: Math.sin(-swing / 2),
+      y: Math.sin(lY / 2),
       z: 0,
-      w: Math.cos(-swing / 2),
+      w: Math.cos(lY / 2),
     });
     rightRef.current?.setNextKinematicRotation({
       x: 0,
-      y: Math.sin(swing / 2),
+      y: Math.sin(rY / 2),
       z: 0,
-      w: Math.cos(swing / 2),
+      w: Math.cos(rY / 2),
     });
     // Highlight when player is near
-    const dx = playerPos.x - 0;
-    const dz = playerPos.z - z;
+    const dx = playerPos.x - cx;
+    const dz = playerPos.z - cz;
     const near = dx * dx + dz * dz < INTERACT_R * INTERACT_R;
     if (promptRef.current) promptRef.current.visible = near;
     if (ringRef.current && near) {
@@ -142,43 +164,50 @@ function Gate({ data, radius }: { data: TerrainData; radius: number }) {
         <FencePost key={i} position={p} scale={1.9} />
       ))}
       {/* Arch beam */}
-      <RigidBody type="fixed" colliders="cuboid" position={[0, y + 2.45, z]}>
+      <RigidBody
+        type="fixed"
+        colliders="cuboid"
+        position={[cx, y + 2.45, cz]}
+        rotation={[0, baseRot, 0]}
+      >
         <mesh castShadow receiveShadow>
           <boxGeometry args={[POST_X * 2 + 0.8, 0.32, 0.36]} />
           <meshStandardMaterial color={"#5a3a20"} roughness={1} />
         </mesh>
       </RigidBody>
       {/* Decorative crossbeam */}
-      <mesh castShadow position={[0, y + 2.85, z]}>
+      <mesh castShadow position={[cx, y + 2.85, cz]} rotation={[0, baseRot, 0]}>
         <boxGeometry args={[POST_X * 2 - 0.4, 0.18, 0.24]} />
         <meshStandardMaterial color={"#6b4a2b"} roughness={1} />
       </mesh>
-      {/* Left door, hinged at -POST_X */}
+      {/* Left door, hinged at +tangent post */}
       <RigidBody
         ref={leftRef}
         type="kinematicPosition"
         colliders="cuboid"
-        position={[-POST_X, y + 0.85, z]}
-      >
-        <mesh castShadow receiveShadow position={[DOOR_HALF, 0, 0]}>
-          <boxGeometry args={[DOOR_HALF * 2, 1.9, 0.18]} />
-          <meshStandardMaterial color={"#7a4d2a"} roughness={1} />
-        </mesh>
-      </RigidBody>
-      {/* Right door, hinged at +POST_X */}
-      <RigidBody
-        ref={rightRef}
-        type="kinematicPosition"
-        colliders="cuboid"
-        position={[POST_X, y + 0.85, z]}
+        position={[lpx, y + 0.85, lpz]}
+        rotation={[0, baseRot, 0]}
       >
         <mesh castShadow receiveShadow position={[-DOOR_HALF, 0, 0]}>
           <boxGeometry args={[DOOR_HALF * 2, 1.9, 0.18]} />
           <meshStandardMaterial color={"#7a4d2a"} roughness={1} />
         </mesh>
       </RigidBody>
+      {/* Right door, hinged at -tangent post */}
+      <RigidBody
+        ref={rightRef}
+        type="kinematicPosition"
+        colliders="cuboid"
+        position={[rpx, y + 0.85, rpz]}
+        rotation={[0, baseRot, 0]}
+      >
+        <mesh castShadow receiveShadow position={[DOOR_HALF, 0, 0]}>
+          <boxGeometry args={[DOOR_HALF * 2, 1.9, 0.18]} />
+          <meshStandardMaterial color={"#7a4d2a"} roughness={1} />
+        </mesh>
+      </RigidBody>
       {/* Interaction prompt */}
-      <group ref={promptRef} position={[0, y + 0.05, z]} visible={false}>
+      <group ref={promptRef} position={[cx, y + 0.05, cz]} visible={false}>
         <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[1.2, 1.5, 32]} />
           <meshBasicMaterial color={"#ffd27a"} transparent opacity={0.9} toneMapped={false} depthWrite={false} />
@@ -230,26 +259,54 @@ export function Village({ data }: { data: TerrainData }) {
     // Gate arc must match the actual door clearance (POST_X = 4 at radius 15
     // → half-angle = asin(4.4/15) ≈ 0.30 rad ≈ 0.094π).
     const gateHalf = Math.PI * 0.1;
-    const gateMin = Math.PI / 2 - gateHalf;
-    const gateMax = Math.PI / 2 + gateHalf;
+    const TAU = Math.PI * 2;
+    const norm = (a: number) => ((a % TAU) + TAU) % TAU;
+    const gates = VILLAGE_GATE_ANGLES.map(norm);
+    const inAnyGate = (a: number) =>
+      gates.some((g) => {
+        const d = Math.abs(((norm(a) - g + Math.PI) % TAU) - Math.PI);
+        return d < gateHalf;
+      });
+    const nearestGateAngle = (a: number) => {
+      let best = gates[0];
+      let bestD = Infinity;
+      for (const g of gates) {
+        const d = Math.abs(((norm(a) - g + Math.PI) % TAU) - Math.PI);
+        if (d < bestD) {
+          bestD = d;
+          best = g;
+        }
+      }
+      return best;
+    };
+    const nearGatePostFor = (x: number, z: number, gateAngle: number) => {
+      const gcx = Math.cos(gateAngle) * r;
+      const gcz = Math.sin(gateAngle) * r;
+      const tx = -Math.sin(gateAngle);
+      const tz = Math.cos(gateAngle);
+      const pAx = gcx + tx * GATE.postX;
+      const pAz = gcz + tz * GATE.postX;
+      const pBx = gcx - tx * GATE.postX;
+      const pBz = gcz - tz * GATE.postX;
+      const dA = (x - pAx) ** 2 + (z - pAz) ** 2;
+      const dB = (x - pBx) ** 2 + (z - pBz) ** 2;
+      return dA < dB ? { gx: pAx, gz: pAz } : { gx: pBx, gz: pBz };
+    };
     for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2;
-      const nextA = ((i + 1) / n) * Math.PI * 2;
-      const prevA = ((i - 1 + n) / n) * Math.PI * 2;
+      const a = (i / n) * TAU;
+      const nextA = ((i + 1) / n) * TAU;
+      const prevA = ((i - 1 + n) / n) * TAU;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
-      // Leave a gap (gate) on +Z side sized to the actual gate opening.
-      const inGate = a > gateMin && a < gateMax;
-      const nextInGate = nextA > gateMin && nextA < gateMax;
-      const prevInGate = prevA > gateMin && prevA < gateMax;
+      const inGate = inAnyGate(a);
+      const nextInGate = inAnyGate(nextA);
+      const prevInGate = inAnyGate(prevA);
       if (inGate) continue;
       const y = data.sampleWorldY(x, z) + 0.55;
       posts.push([x, y, z]);
-      // Stitch a connector rail from the gate post to this first-after-gate
-      // post so the left flank also closes off cleanly.
       if (prevInGate) {
-        const gx = x > 0 ? GATE.postX : -GATE.postX;
-        const gz = r;
+        const ga = nearestGateAngle(prevA);
+        const { gx, gz } = nearGatePostFor(x, z, ga);
         const mx = (x + gx) / 2;
         const mz = (z + gz) / 2;
         const dy = data.sampleWorldY(mx, mz);
@@ -260,11 +317,9 @@ export function Village({ data }: { data: TerrainData }) {
         rails.push({ pos: [mx, dy + 0.78, mz], rot, length, y: dy + 0.78 });
         rails.push({ pos: [mx, dy + 1.2, mz], rot, length, y: dy + 1.2 });
       }
-      // Stitch a connector rail from this last-before-gate post directly to
-      // the gate post so there is no walk-through gap on either flank.
       if (nextInGate) {
-        const gx = x > 0 ? GATE.postX : -GATE.postX;
-        const gz = r; // gate posts sit at z = fence radius
+        const ga = nearestGateAngle(nextA);
+        const { gx, gz } = nearGatePostFor(x, z, ga);
         const mx = (x + gx) / 2;
         const mz = (z + gz) / 2;
         const dy = data.sampleWorldY(mx, mz);
@@ -303,7 +358,9 @@ export function Village({ data }: { data: TerrainData }) {
       {fence.rails.map((r, i) => (
         <FenceRail key={i} position={r.pos} rotation={r.rot} length={r.length} y={r.y} />
       ))}
-      <Gate data={data} radius={fence.radius} />
+      {VILLAGE_GATE_ANGLES.map((angle, i) => (
+        <Gate key={i} data={data} radius={fence.radius} angle={angle} />
+      ))}
       {/* Campfire on the back side of the pylon, off the gate path */}
       <Campfire position={[0, baseY, -3.5]} />
     </group>
