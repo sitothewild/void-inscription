@@ -84,9 +84,12 @@ function FenceRail({
 function Gate({ data, radius }: { data: TerrainData; radius: number }) {
   const z = radius;
   const y = data.sampleWorldY(0, z);
+  // Gate clearance: ~8m wide opening, two 3m doors with a small center seam.
+  const POST_X = 4.0;
+  const DOOR_HALF = 1.5; // door width = 3.0
   const posts: Array<[number, number, number]> = [
-    [-2.6, data.sampleWorldY(-2.6, z) + 0.75, z],
-    [2.6, data.sampleWorldY(2.6, z) + 0.75, z],
+    [-POST_X, data.sampleWorldY(-POST_X, z) + 0.9, z],
+    [POST_X, data.sampleWorldY(POST_X, z) + 0.9, z],
   ];
   const [open, setOpen] = useState(false);
   const leftRef = useRef<RapierRigidBody>(null);
@@ -94,7 +97,7 @@ function Gate({ data, radius }: { data: TerrainData; radius: number }) {
   const ringRef = useRef<Mesh>(null);
   const promptRef = useRef<Group>(null);
   const openProgress = useRef(0);
-  const INTERACT_R = 4;
+  const INTERACT_R = 5;
 
   useEffect(() => {
     return onEdge("action", () => {
@@ -136,33 +139,41 @@ function Gate({ data, radius }: { data: TerrainData; radius: number }) {
   return (
     <group>
       {posts.map((p, i) => (
-        <FencePost key={i} position={p} scale={1.6} />
+        <FencePost key={i} position={p} scale={1.9} />
       ))}
-      <RigidBody type="fixed" colliders="cuboid" position={[0, y + 2.05, z]}>
+      {/* Arch beam */}
+      <RigidBody type="fixed" colliders="cuboid" position={[0, y + 2.45, z]}>
         <mesh castShadow receiveShadow>
-          <boxGeometry args={[5.8, 0.28, 0.32]} />
+          <boxGeometry args={[POST_X * 2 + 0.8, 0.32, 0.36]} />
           <meshStandardMaterial color={"#5a3a20"} roughness={1} />
         </mesh>
       </RigidBody>
+      {/* Decorative crossbeam */}
+      <mesh castShadow position={[0, y + 2.85, z]}>
+        <boxGeometry args={[POST_X * 2 - 0.4, 0.18, 0.24]} />
+        <meshStandardMaterial color={"#6b4a2b"} roughness={1} />
+      </mesh>
+      {/* Left door, hinged at -POST_X */}
       <RigidBody
         ref={leftRef}
         type="kinematicPosition"
         colliders="cuboid"
-        position={[-2.5, y + 0.65, z]}
+        position={[-POST_X, y + 0.85, z]}
       >
-        <mesh castShadow receiveShadow position={[1.1, 0, 0]}>
-          <boxGeometry args={[2.0, 1.6, 0.16]} />
+        <mesh castShadow receiveShadow position={[DOOR_HALF, 0, 0]}>
+          <boxGeometry args={[DOOR_HALF * 2, 1.9, 0.18]} />
           <meshStandardMaterial color={"#7a4d2a"} roughness={1} />
         </mesh>
       </RigidBody>
+      {/* Right door, hinged at +POST_X */}
       <RigidBody
         ref={rightRef}
         type="kinematicPosition"
         colliders="cuboid"
-        position={[2.5, y + 0.65, z]}
+        position={[POST_X, y + 0.85, z]}
       >
-        <mesh castShadow receiveShadow position={[-1.1, 0, 0]}>
-          <boxGeometry args={[2.0, 1.6, 0.16]} />
+        <mesh castShadow receiveShadow position={[-DOOR_HALF, 0, 0]}>
+          <boxGeometry args={[DOOR_HALF * 2, 1.9, 0.18]} />
           <meshStandardMaterial color={"#7a4d2a"} roughness={1} />
         </mesh>
       </RigidBody>
