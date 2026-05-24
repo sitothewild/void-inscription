@@ -221,8 +221,8 @@ export function Village({ data }: { data: TerrainData }) {
     const posts: Array<[number, number, number]> = [];
     const rails: Array<{ pos: [number, number, number]; rot: number; length: number; y: number }> =
       [];
-    const r = 9;
-    const n = 36;
+    const r = 15;
+    const n = 56;
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
       const nextA = ((i + 1) / n) * Math.PI * 2;
