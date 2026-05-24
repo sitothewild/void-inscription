@@ -368,30 +368,36 @@ export function Village({ data }: { data: TerrainData }) {
   // the terrain and faces tangent to the circle.
   const fence = useMemo(() => {
     const r = 15;
-    const circumference = Math.PI * 2 * r;
-    const n = Math.max(24, Math.round(circumference / FENCE_SEGMENT_LEN));
     const TAU = Math.PI * 2;
     const norm = (a: number) => ((a % TAU) + TAU) % TAU;
-    const gates = VILLAGE_GATE_ANGLES.map(norm);
-    // Gate clearance matches the actual angular extent of the gate posts
-    // (POST_X off the fence circle). Tight margin so the fence butts up
-    // against each gate and the ring reads as a closed circle.
-    const gateHalf = Math.atan2(GATE.postX, r) + 0.02;
-    const inAnyGate = (a: number) =>
-      gates.some((g) => {
-        const d = Math.abs(((norm(a) - g + Math.PI) % TAU) - Math.PI);
-        return d < gateHalf;
-      });
+    // Pack fence segments inside each arc between gates, starting just
+    // outside each gate post and walking toward the next gate. This
+    // guarantees colliders never overlap the gate posts or extend into
+    // the gate opening (the root cause of weird collisions near gates).
+    const gates = [...VILLAGE_GATE_ANGLES].map(norm).sort((a, b) => a - b);
+    // Angular half-extent occupied by the gate (posts + a small clearance
+    // so the player can walk through cleanly).
+    const gateHalf = Math.atan2(GATE.postX + 0.25, r);
+    // Angular footprint of one fence segment along the tangent.
+    const segHalf = FENCE_SEGMENT_LEN / 2 / r;
     const segments: Array<{ pos: [number, number, number]; rot: number }> = [];
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * TAU;
-      if (inAnyGate(a)) continue;
-      const x = Math.cos(a) * r;
-      const z = Math.sin(a) * r;
-      const y = data.sampleWorldY(x, z);
-      // Segment's local +X faces along the fence (tangent direction).
-      const rot = Math.atan2(-Math.cos(a), Math.sin(a));
-      segments.push({ pos: [x, y, z], rot });
+    for (let i = 0; i < gates.length; i++) {
+      const start = gates[i] + gateHalf + segHalf;
+      const nextRaw = gates[(i + 1) % gates.length];
+      const end = (i + 1 >= gates.length ? nextRaw + TAU : nextRaw) - gateHalf - segHalf;
+      const span = end - start;
+      if (span <= 0) continue;
+      // Evenly distribute whole segments across the arc.
+      const n = Math.max(1, Math.round(span / (segHalf * 2)));
+      const step = span / n;
+      for (let k = 0; k < n; k++) {
+        const a = start + step * (k + 0.5);
+        const x = Math.cos(a) * r;
+        const z = Math.sin(a) * r;
+        const y = data.sampleWorldY(x, z);
+        const rot = Math.atan2(-Math.cos(a), Math.sin(a));
+        segments.push({ pos: [x, y, z], rot });
+      }
     }
     return { segments, radius: r };
   }, [data]);
