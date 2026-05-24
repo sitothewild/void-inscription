@@ -424,20 +424,6 @@ export function Village({ data }: { data: TerrainData }) {
     return out;
   }, [data]);
 
-  // Signs: one welcome sign just outside each gate.
-  const gateSigns = useMemo(() => {
-    const fenceR = 15;
-    const OUT = 3.6;
-    return VILLAGE_GATE_ANGLES.map((angle) => {
-      const x = Math.cos(angle) * (fenceR + OUT);
-      const z = Math.sin(angle) * (fenceR + OUT);
-      const y = data.sampleWorldY(x, z);
-      // Face into the village (toward origin).
-      const rot = Math.atan2(-x, -z);
-      return { pos: [x, y, z] as [number, number, number], rot };
-    });
-  }, [data]);
-
   return (
     <group>
       {huts.map((h, i) => (
