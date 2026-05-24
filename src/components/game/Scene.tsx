@@ -24,11 +24,11 @@ function World() {
     <>
       {resources.map((r) =>
         r.kind === "tree" ? (
-          <Tree key={r.id} x={r.x} z={r.z} />
+          <Tree key={r.id} id={r.id} x={r.x} z={r.z} />
         ) : r.kind === "rock" ? (
-          <Rock key={r.id} x={r.x} z={r.z} />
+          <Rock key={r.id} id={r.id} x={r.x} z={r.z} />
         ) : (
-          <Herb key={r.id} x={r.x} z={r.z} />
+          <Herb key={r.id} id={r.id} x={r.x} z={r.z} />
         ),
       )}
       {enemies.map((e) => (

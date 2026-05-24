@@ -1,10 +1,14 @@
 import { Billboard, Text } from "@react-three/drei";
 import type { RemotePlayerState } from "@/lib/net/codec";
+import { useGame } from "@/game/store";
+import { heightAt } from "@/game/terrain";
 
 export function RemotePlayer({ p }: { p: RemotePlayerState }) {
   const hpRatio = Math.max(0, Math.min(1, p.hp / 100));
+  const plateaus = useGame((s) => s.plateaus);
+  const py = heightAt(p.x, p.z, plateaus);
   return (
-    <group position={[p.x, 0, p.z]} rotation={[0, p.facing, 0]}>
+    <group position={[p.x, py, p.z]} rotation={[0, p.facing, 0]}>
       <mesh position={[0, 0.6, 0]} castShadow>
         <boxGeometry args={[0.6, 0.9, 0.4]} />
         <meshStandardMaterial color={p.color} />
