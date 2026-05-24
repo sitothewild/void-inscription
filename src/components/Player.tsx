@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useKeyboardControls } from "@react-three/drei";
+import { useKeyboardControls, useGLTF, Clone } from "@react-three/drei";
 import {
   CapsuleCollider,
   RigidBody,
@@ -9,6 +9,7 @@ import {
 } from "@react-three/rapier";
 import { Group, Vector3 } from "three";
 import { CharacterModel } from "./CharacterModel";
+import { fireArrow } from "./Projectiles";
 
 export type Controls = "forward" | "back" | "left" | "right" | "jump";
 
@@ -31,6 +32,31 @@ export function Player({ spawn, camera, onRef }: Props) {
   const targetCam = useRef(new Vector3());
   const targetLook = useRef(new Vector3());
   const facing = useRef(0);
+  const lastShot = useRef(0);
+  const bow = useGLTF("/models/items/bow.glb");
+
+  // Shoot on left mouse button
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      const now = performance.now();
+      if (now - lastShot.current < 350) return;
+      lastShot.current = now;
+      const b = bodyRef.current;
+      if (!b) return;
+      const t = b.translation();
+      const f = facing.current;
+      const dir: [number, number, number] = [Math.sin(f), 0.18, Math.cos(f)];
+      const pos: [number, number, number] = [
+        t.x + dir[0] * 0.8,
+        t.y + 0.4,
+        t.z + dir[2] * 0.8,
+      ];
+      fireArrow({ pos, dir, speed: 22 });
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, []);
 
   // Teleport on spawn change
   useEffect(() => {
@@ -112,7 +138,13 @@ export function Player({ spawn, camera, onRef }: Props) {
       <CapsuleCollider args={[0.5, 0.5]} />
       <group ref={visualRef} position={[0, -1, 0]}>
         <CharacterModel url="/models/characters/warrior.glb" scale={1} animation="idle" />
+        {/* Bow in hand */}
+        <group position={[0.45, 1.1, 0.1]} rotation={[0, Math.PI / 2, Math.PI / 2]}>
+          <Clone object={bow.scene} scale={0.5} castShadow />
+        </group>
       </group>
     </RigidBody>
   );
 }
+
+useGLTF.preload("/models/items/bow.glb");

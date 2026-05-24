@@ -1,6 +1,6 @@
 import { Suspense, useMemo, useRef } from "react";
 import { Sky } from "@react-three/drei";
-import { RigidBody, type RapierRigidBody } from "@react-three/rapier";
+import { type RapierRigidBody } from "@react-three/rapier";
 import { Terrain } from "./Terrain";
 import { Portal } from "./Portal";
 import { Player } from "./Player";
@@ -10,6 +10,8 @@ import { WindParticles } from "./WindParticles";
 import { Resources } from "./Resources";
 import { Vendors } from "./Vendors";
 import { Animals } from "./Animals";
+import { Pylon } from "./Pylon";
+import { Projectiles } from "./Projectiles";
 import { useProceduralTerrain } from "@/hooks/useProceduralTerrain";
 import { usePortalTrigger } from "@/hooks/usePortalTrigger";
 
@@ -76,19 +78,10 @@ export function Level1({ spawn, onEnterPortal }: Props) {
         <meshStandardMaterial color={"#1e5d8a"} metalness={0.2} roughness={0.6} />
       </mesh>
 
-      {/* Village Anchor Pylon */}
-      <RigidBody type="fixed" colliders="cuboid" position={[0, terrain.sampleWorldY(0, 0) + 4, 0]}>
-        <mesh castShadow>
-          <cylinderGeometry args={[0.5, 0.5, 8, 16]} />
-          <meshStandardMaterial
-            color={"#ffb84a"}
-            emissive={"#ff8a00"}
-            emissiveIntensity={2.2}
-            toneMapped={false}
-          />
-        </mesh>
-        <pointLight color={"#ffb060"} intensity={8} distance={30} />
-      </RigidBody>
+      {/* Village Anchor — spinning cube + particles */}
+      <Pylon position={[0, terrain.sampleWorldY(0, 0) + 3, 0]} color={"#ffb060"} />
+
+      <Projectiles />
 
       {/* Portals */}
       {portals.map((p) => (
