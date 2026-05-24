@@ -258,14 +258,31 @@ export function Village({ data }: { data: TerrainData }) {
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
       const nextA = ((i + 1) / n) * Math.PI * 2;
+      const prevA = ((i - 1 + n) / n) * Math.PI * 2;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
       // Leave a gap (gate) on +Z side sized to the actual gate opening.
       const inGate = a > gateMin && a < gateMax;
       const nextInGate = nextA > gateMin && nextA < gateMax;
+      const prevInGate = prevA > gateMin && prevA < gateMax;
       if (inGate) continue;
       const y = data.sampleWorldY(x, z) + 0.55;
       posts.push([x, y, z]);
+      // Stitch a connector rail from the gate post to this first-after-gate
+      // post so the left flank also closes off cleanly.
+      if (prevInGate) {
+        const gx = x > 0 ? GATE.postX : -GATE.postX;
+        const gz = r;
+        const mx = (x + gx) / 2;
+        const mz = (z + gz) / 2;
+        const dy = data.sampleWorldY(mx, mz);
+        const dxg = x - gx;
+        const dzg = z - gz;
+        const length = Math.hypot(dxg, dzg);
+        const rot = Math.atan2(-dzg, dxg);
+        rails.push({ pos: [mx, dy + 0.78, mz], rot, length, y: dy + 0.78 });
+        rails.push({ pos: [mx, dy + 1.2, mz], rot, length, y: dy + 1.2 });
+      }
       // Stitch a connector rail from this last-before-gate post directly to
       // the gate post so there is no walk-through gap on either flank.
       if (nextInGate) {
