@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Sword, Bow, Coins, X } from "lucide-react";
+import { Sword, Crosshair as Bow, Coins, X } from "lucide-react";
 import {
   WEAPON_CATALOG,
   inventory,
