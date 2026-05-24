@@ -251,8 +251,8 @@ function WatchTower({
   position: [number, number, number];
   rotation?: number;
 }) {
-  const BASE = 1.6; // base half-width
-  const H = 4.2; // total height to platform deck
+  const BASE = 1.0; // base half-width (was 1.6)
+  const H = 2.8;    // total height to platform deck (was 4.2)
   return (
     <group position={position} rotation={[0, rotation, 0]}>
       {/* Four corner posts */}
