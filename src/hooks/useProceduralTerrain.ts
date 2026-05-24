@@ -71,12 +71,14 @@ export function useProceduralTerrain(
         const mask = Math.max(0, 1 - Math.pow(d / islandRadius, 2.2));
         h *= mask;
 
-        // Flatten village center
+        // Flatten village center with a wide blend ring
+        const blend = 4;
         if (d < villageRadius) {
           h = 0.35; // plains-level pad
-        } else if (d < villageRadius + 2) {
-          const t = (d - villageRadius) / 2;
-          h = h * t + 0.35 * (1 - t);
+        } else if (d < villageRadius + blend) {
+          const t = (d - villageRadius) / blend;
+          const s = t * t * (3 - 2 * t); // smoothstep
+          h = h * s + 0.35 * (1 - s);
         }
 
         heights[j * n + i] = h;
