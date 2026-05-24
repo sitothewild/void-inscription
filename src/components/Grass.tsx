@@ -28,6 +28,8 @@ type Props = {
   count?: number;
   /** Override the village exclusion radius. Defaults to data.villageRadius + 2. */
   villageRadius?: number;
+  /** Allow grass on "desert" biome cells with a yellow/dry tint (hot plains). */
+  allowDesert?: boolean;
 };
 
 /** Build one cross-shaped tapered blade (two perpendicular blades sharing a base). */
@@ -74,7 +76,7 @@ function makeBladeGeometry() {
 }
 
 /** Instanced wind-animated grass blades on plains/forest tiles. */
-export function Grass({ data, count = 16000, villageRadius }: Props) {
+export function Grass({ data, count = 16000, villageRadius, allowDesert = false }: Props) {
   const exclusion = villageRadius ?? data.villageRadius + 2;
   const meshRef = useRef<InstancedMesh>(null!);
   const matRef = useRef<MeshStandardMaterial>(null!);
@@ -93,6 +95,8 @@ export function Grass({ data, count = 16000, villageRadius }: Props) {
     const forestB = new Color("#2f6b35");
     const swampA = new Color("#7fb361");
     const swampB = new Color("#3a6a3a");
+    const dryA = new Color("#d6c45a");
+    const dryB = new Color("#9c7c2c");
     const half = data.worldSize / 2;
     let placed = 0;
     let attempts = 0;
@@ -106,7 +110,8 @@ export function Grass({ data, count = 16000, villageRadius }: Props) {
       if (h < 0.22 || h > 0.6) continue;
       // Skip biomes that should NOT have grass (desert, tundra, mountains, dirt paths).
       const biome = data.biomeAt(x, z);
-      if (biome === "desert" || biome === "tundra" || biome === "mountains") continue;
+      if (biome === "tundra" || biome === "mountains") continue;
+      if (biome === "desert" && !allowDesert) continue;
       const y = h * data.maxHeight;
       dummy.position.set(x, y, z);
       dummy.rotation.set(0, rng() * Math.PI * 2, 0);
@@ -114,8 +119,16 @@ export function Grass({ data, count = 16000, villageRadius }: Props) {
       dummy.scale.set(s, 0.9 + rng() * 0.9, s);
       dummy.updateMatrix();
       matrices.push(dummy.matrix.clone());
-      const a = biome === "forest" ? forestA : biome === "swamp" ? swampA : plainsA;
-      const b = biome === "forest" ? forestB : biome === "swamp" ? swampB : plainsB;
+      const a =
+        biome === "forest" ? forestA :
+        biome === "swamp"  ? swampA :
+        biome === "desert" ? dryA   :
+        plainsA;
+      const b =
+        biome === "forest" ? forestB :
+        biome === "swamp"  ? swampB :
+        biome === "desert" ? dryB   :
+        plainsB;
       const c = a.clone().lerp(b, rng() * 0.85);
       colors.push(c);
       placed++;
