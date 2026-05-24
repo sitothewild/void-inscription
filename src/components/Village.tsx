@@ -56,16 +56,19 @@ const GATE = {
  * mesh is loaded asynchronously inside Suspense.
  */
 const FENCE_URL = "/models/fences/Wood_Fence_1.glb";
-/** Approximate segment width of one fence GLB. Slightly under-counted on
- *  purpose so adjacent segments overlap a touch and gaps disappear. */
-export const FENCE_SEGMENT_LEN = 1.55;
+/** Base width of the fence GLB before scaling; used to resize each chord so
+ *  neighboring fence ends meet instead of hiding gaps by adding more pieces. */
+const FENCE_MODEL_LEN = 2.0;
+export const FENCE_SEGMENT_LEN = 2.45;
 
 function FenceSegment({
   position,
   rotation,
+  length,
 }: {
   position: [number, number, number];
   rotation: number;
+  length: number;
 }) {
   return (
     <RigidBody
@@ -74,9 +77,9 @@ function FenceSegment({
       position={position}
       rotation={[0, rotation, 0]}
     >
-      <CuboidCollider args={[FENCE_SEGMENT_LEN / 2 + 0.05, 0.7, 0.08]} position={[0, 0.7, 0]} />
+      <CuboidCollider args={[length / 2, 0.7, 0.08]} position={[0, 0.7, 0]} />
       <Suspense fallback={null}>
-        <GltfProp url={FENCE_URL} scale={1.25} />
+        <GltfProp url={FENCE_URL} scale={[length / FENCE_MODEL_LEN, 1.15, 1.15]} />
       </Suspense>
     </RigidBody>
   );
@@ -379,26 +382,26 @@ export function Village({ data }: { data: TerrainData }) {
     // Angular position of the gate post on the fence circle. The first
     // fence segment should butt directly against this — no gap, no overlap.
     const postAngle = Math.atan2(GATE.postX, r);
-    // Angular footprint of one fence segment along the tangent.
-    const segHalf = FENCE_SEGMENT_LEN / 2 / r;
-    const segments: Array<{ pos: [number, number, number]; rot: number }> = [];
+    const segments: Array<{ pos: [number, number, number]; rot: number; length: number }> = [];
     for (let i = 0; i < gates.length; i++) {
-      // start = inner edge of first segment sits flush with the gate post.
-      const start = gates[i] + postAngle + segHalf * 0.9; // tiny inward bias closes the corner gap
+      // Arc endpoints are just outside the gate posts. We keep the segment
+      // count stable and resize/rotate the existing chords so each end meets
+      // the next piece instead of adding more fences to cover visual gaps.
+      const start = gates[i] + postAngle;
       const nextRaw = gates[(i + 1) % gates.length];
-      const end = (i + 1 >= gates.length ? nextRaw + TAU : nextRaw) - postAngle - segHalf * 0.9;
+      const end = (i + 1 >= gates.length ? nextRaw + TAU : nextRaw) - postAngle;
       const span = end - start;
       if (span <= 0) continue;
-      // Ceil so adjacent segments overlap slightly rather than leaving a gap.
-      const n = Math.max(1, Math.ceil(span / (segHalf * 2)));
+      const n = Math.max(1, Math.round((span * r) / FENCE_SEGMENT_LEN));
       const step = span / n;
       for (let k = 0; k < n; k++) {
         const a = start + step * (k + 0.5);
         const x = Math.cos(a) * r;
         const z = Math.sin(a) * r;
         const y = data.sampleWorldY(x, z);
+        const chordLen = 2 * r * Math.sin(step / 2);
         const rot = Math.atan2(-Math.cos(a), Math.sin(a));
-        segments.push({ pos: [x, y, z], rot });
+        segments.push({ pos: [x, y, z], rot, length: chordLen });
       }
     }
     return { segments, radius: r };
@@ -438,7 +441,7 @@ export function Village({ data }: { data: TerrainData }) {
         <Hut key={i} position={h.pos} rotation={h.rot} url={HOUSE_URLS[i % HOUSE_URLS.length]} />
       ))}
       {fence.segments.map((s, i) => (
-        <FenceSegment key={i} position={s.pos} rotation={s.rot} />
+        <FenceSegment key={i} position={s.pos} rotation={s.rot} length={s.length} />
       ))}
       {VILLAGE_GATE_ANGLES.map((angle, i) => (
         <Gate key={i} data={data} radius={fence.radius} angle={angle} index={i} />
