@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { Suspense, useMemo, useRef } from "react";
 import { Sky } from "@react-three/drei";
 import { RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import { Terrain } from "./Terrain";
@@ -8,6 +8,8 @@ import { Grass } from "./Grass";
 import { Village } from "./Village";
 import { WindParticles } from "./WindParticles";
 import { Resources } from "./Resources";
+import { Vendors } from "./Vendors";
+import { Animals } from "./Animals";
 import { useProceduralTerrain } from "@/hooks/useProceduralTerrain";
 import { usePortalTrigger } from "@/hooks/usePortalTrigger";
 
@@ -62,6 +64,10 @@ export function Level1({ spawn, onEnterPortal }: Props) {
       <Resources data={terrain} />
       <Grass data={terrain} count={6000} />
       <Village data={terrain} />
+      <Suspense fallback={null}>
+        <Vendors data={terrain} />
+        <Animals data={terrain} />
+      </Suspense>
       <WindParticles />
 
       {/* Ocean */}
