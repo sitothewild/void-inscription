@@ -24,8 +24,7 @@ export function Lighting() {
       {!isDay && (
         <hemisphereLight args={["#bcd0ff", "#1a2030", 0.5]} />
       )}
-      <color attach="background" args={[isDay ? "#9ed1ff" : "#2b3a66"]} />
-      <fog attach="fog" args={[isDay ? "#9ed1ff" : "#2b3a66", 35, 90]} />
+      <fog attach="fog" args={[isDay ? "#cfeaff" : "#2b3a66", 45, 110]} />
     </>
   );
 }
