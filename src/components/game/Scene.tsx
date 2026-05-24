@@ -1,6 +1,7 @@
 import { Canvas } from "@react-three/fiber";
 import { Suspense } from "react";
 import { ACESFilmicToneMapping, SRGBColorSpace } from "three";
+import { Physics } from "@react-three/rapier";
 import { useGame } from "@/game/store";
 import { Enemy } from "./Enemy";
 import { GameLoop } from "./GameLoop";
@@ -15,7 +16,7 @@ import { RemotePlayer } from "./RemotePlayer";
 import { Village } from "./Village";
 import { Vendors } from "./Vendor";
 import { Herb } from "./Herb";
-import { Plateaus } from "./Plateaus";
+import { Terrain } from "./Terrain";
 import { WindField } from "./WindField";
 import { WindParticles } from "./WindParticles";
 import { SkyDome } from "./SkyDome";
@@ -61,14 +62,16 @@ export function Scene() {
         <IsoCamera />
         <SkyDome />
         <Lighting />
-        <Ground />
-        <Seed />
-      <Village />
-      <Plateaus />
-      <WindField />
-      <Vendors />
-        <Hero />
-        <World />
+        <Physics gravity={[0, -22, 0]} timeStep={1 / 60}>
+          <Ground />
+          <Terrain />
+          <Seed />
+          <Village />
+          <Vendors />
+          <Hero />
+          <World />
+        </Physics>
+        <WindField />
         <WindParticles />
         <GameLoop />
       </Suspense>
