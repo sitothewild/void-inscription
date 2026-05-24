@@ -7,9 +7,36 @@ import { Particles } from "./Particles";
 import { usePortalTrigger } from "@/hooks/usePortalTrigger";
 
 const LIGHTING_PRESETS = [
-  { name: "moon", bg: "#111827", fog: "#1b2940", ambient: 0.55, hemi: ["#9dbbff", "#172033"], sun: [0, 24, -18], sunColor: "#bcd4ff", sunPower: 1.2 },
-  { name: "dusk", bg: "#2d1f33", fog: "#4b2942", ambient: 0.5, hemi: ["#ffb06a", "#2e2140"], sun: [-18, 14, 16], sunColor: "#ff9960", sunPower: 1.6 },
-  { name: "day", bg: "#6f96bf", fog: "#8fb5d7", ambient: 0.7, hemi: ["#cfeaff", "#31402f"], sun: [20, 30, 10], sunColor: "#fff4d0", sunPower: 2.0 },
+  {
+    name: "moon",
+    bg: "#111827",
+    fog: "#1b2940",
+    ambient: 0.55,
+    hemi: ["#9dbbff", "#172033"],
+    sun: [0, 24, -18],
+    sunColor: "#bcd4ff",
+    sunPower: 1.2,
+  },
+  {
+    name: "dusk",
+    bg: "#2d1f33",
+    fog: "#4b2942",
+    ambient: 0.5,
+    hemi: ["#ffb06a", "#2e2140"],
+    sun: [-18, 14, 16],
+    sunColor: "#ff9960",
+    sunPower: 1.6,
+  },
+  {
+    name: "day",
+    bg: "#6f96bf",
+    fog: "#8fb5d7",
+    ambient: 0.7,
+    hemi: ["#cfeaff", "#31402f"],
+    sun: [20, 30, 10],
+    sunColor: "#fff4d0",
+    sunPower: 2.0,
+  },
 ] as const;
 
 function mulberry32(seed: number) {
@@ -109,11 +136,10 @@ export function Level2({ spawn, onEnterPortal }: Props) {
       </RigidBody>
 
       {/* Tunnel shell (visual only) */}
-      <mesh
-        rotation={[Math.PI / 2, 0, 0]}
-        position={[0, 4, -TUNNEL_LENGTH / 2 + 5]}
-      >
-        <cylinderGeometry args={[TUNNEL_RADIUS + 0.5, TUNNEL_RADIUS + 0.5, TUNNEL_LENGTH, 32, 1, true]} />
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 4, -TUNNEL_LENGTH / 2 + 5]}>
+        <cylinderGeometry
+          args={[TUNNEL_RADIUS + 0.5, TUNNEL_RADIUS + 0.5, TUNNEL_LENGTH, 32, 1, true]}
+        />
         <meshStandardMaterial
           color={"#0e1426"}
           emissive={"#10203a"}

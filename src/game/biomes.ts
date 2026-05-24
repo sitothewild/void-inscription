@@ -14,7 +14,14 @@ function mulberry32(seed: number) {
   };
 }
 
-const cache = new Map<number, { heat: ReturnType<typeof createNoise2D>; wet: ReturnType<typeof createNoise2D>; warp: ReturnType<typeof createNoise2D> }>();
+const cache = new Map<
+  number,
+  {
+    heat: ReturnType<typeof createNoise2D>;
+    wet: ReturnType<typeof createNoise2D>;
+    warp: ReturnType<typeof createNoise2D>;
+  }
+>();
 
 function noises(seed: number) {
   const existing = cache.get(seed);

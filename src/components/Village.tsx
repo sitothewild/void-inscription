@@ -35,7 +35,13 @@ function Hut({ position, rotation }: { position: [number, number, number]; rotat
   );
 }
 
-function FencePost({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
+function FencePost({
+  position,
+  scale = 1,
+}: {
+  position: [number, number, number];
+  scale?: number;
+}) {
   return (
     <RigidBody type="fixed" colliders="cuboid" position={position}>
       <mesh castShadow position={[0, (scale - 1) * 0.55, 0]}>
@@ -58,7 +64,12 @@ function FenceRail({
   y: number;
 }) {
   return (
-    <RigidBody type="fixed" colliders="cuboid" position={[position[0], y, position[2]]} rotation={[0, rotation, 0]}>
+    <RigidBody
+      type="fixed"
+      colliders="cuboid"
+      position={[position[0], y, position[2]]}
+      rotation={[0, rotation, 0]}
+    >
       <mesh castShadow receiveShadow>
         <boxGeometry args={[length, 0.16, 0.16]} />
         <meshStandardMaterial color={"#6f4726"} roughness={1} />
@@ -85,13 +96,23 @@ function Gate({ data, radius }: { data: TerrainData; radius: number }) {
           <meshStandardMaterial color={"#5a3a20"} roughness={1} />
         </mesh>
       </RigidBody>
-      <RigidBody type="fixed" colliders="cuboid" position={[-1.55, y + 0.65, z + 0.25]} rotation={[0, -0.45, 0]}>
+      <RigidBody
+        type="fixed"
+        colliders="cuboid"
+        position={[-1.55, y + 0.65, z + 0.25]}
+        rotation={[0, -0.45, 0]}
+      >
         <mesh castShadow receiveShadow>
           <boxGeometry args={[2.2, 1.2, 0.16]} />
           <meshStandardMaterial color={"#7a4d2a"} roughness={1} />
         </mesh>
       </RigidBody>
-      <RigidBody type="fixed" colliders="cuboid" position={[1.55, y + 0.65, z + 0.25]} rotation={[0, 0.45, 0]}>
+      <RigidBody
+        type="fixed"
+        colliders="cuboid"
+        position={[1.55, y + 0.65, z + 0.25]}
+        rotation={[0, 0.45, 0]}
+      >
         <mesh castShadow receiveShadow>
           <boxGeometry args={[2.2, 1.2, 0.16]} />
           <meshStandardMaterial color={"#7a4d2a"} roughness={1} />
@@ -142,7 +163,8 @@ export function Village({ data }: { data: TerrainData }) {
 
   const fence = useMemo(() => {
     const posts: Array<[number, number, number]> = [];
-    const rails: Array<{ pos: [number, number, number]; rot: number; length: number; y: number }> = [];
+    const rails: Array<{ pos: [number, number, number]; rot: number; length: number; y: number }> =
+      [];
     const r = 9;
     const n = 36;
     for (let i = 0; i < n; i++) {

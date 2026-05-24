@@ -1,11 +1,6 @@
 import { useMemo } from "react";
 import { RigidBody, HeightfieldCollider, CuboidCollider } from "@react-three/rapier";
-import {
-  BufferAttribute,
-  BufferGeometry,
-  Color,
-  DoubleSide,
-} from "three";
+import { BufferAttribute, BufferGeometry, Color, DoubleSide } from "three";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
 import { biomeColor } from "@/game/biomes";
 
@@ -71,12 +66,7 @@ export function Terrain({ data }: { data: TerrainData }) {
       </mesh>
       <RigidBody type="fixed" colliders={false}>
         <HeightfieldCollider
-          args={[
-            segments,
-            segments,
-            heightArray,
-            { x: worldSize, y: maxHeight, z: worldSize },
-          ]}
+          args={[segments, segments, heightArray, { x: worldSize, y: maxHeight, z: worldSize }]}
           friction={1.2}
         />
       </RigidBody>

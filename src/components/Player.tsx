@@ -64,11 +64,7 @@ export function Player({ spawn, camera, onRef }: Props) {
     const t = b.translation();
     const f = facing.current;
     const dir: [number, number, number] = [Math.sin(f), 0.18, Math.cos(f)];
-    const pos: [number, number, number] = [
-      t.x + dir[0] * 0.8,
-      t.y + 0.4,
-      t.z + dir[2] * 0.8,
-    ];
+    const pos: [number, number, number] = [t.x + dir[0] * 0.8, t.y + 0.4, t.z + dir[2] * 0.8];
     fireArrow({ pos, dir, speed: 22 });
   };
 

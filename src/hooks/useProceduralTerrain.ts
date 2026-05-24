@@ -99,6 +99,15 @@ export function useProceduralTerrain(
     const sampleWorldY = (x: number, z: number) => sampleAt(x, z) * maxHeight;
     const sampleBiome = (x: number, z: number) => biomeAt(seed, x, z);
 
-    return { heights, size: n, worldSize, maxHeight, sampleAt, sampleWorldY, biomeAt: sampleBiome, seed };
+    return {
+      heights,
+      size: n,
+      worldSize,
+      maxHeight,
+      sampleAt,
+      sampleWorldY,
+      biomeAt: sampleBiome,
+      seed,
+    };
   }, [seed, segments, worldSize, maxHeight, villageRadius]);
 }
