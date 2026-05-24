@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Clone, useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { Group, Mesh, MeshStandardMaterial } from "three";
+import { Mesh, MeshStandardMaterial } from "three";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
 import { useResources, world, type Resource, type ResourceKind } from "@/game/world";
 
