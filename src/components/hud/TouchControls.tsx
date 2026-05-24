@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { touchInput } from "@/game/touchInput";
 import { useGame } from "@/game/store";
+import {
+  HERO_ATTACK_RANGE,
+  SHAMAN_POS,
+  SMITH_POS,
+  VENDOR_INTERACT_RANGE,
+} from "@/game/constants";
+import { rangeMultiplier } from "@/game/weapons";
 
 function isTouchDevice() {
   if (typeof window === "undefined") return false;
@@ -21,12 +28,38 @@ export function TouchControls() {
   const padRef = useRef<HTMLDivElement>(null);
   const touchIdRef = useRef<number | null>(null);
   const status = useGame((s) => s.status);
+  const heroX = useGame((s) => s.heroX);
+  const heroZ = useGame((s) => s.heroZ);
+  const resources = useGame((s) => s.resources);
+  const weapons = useGame((s) => s.inventory.weapons);
 
   useEffect(() => {
     setEnabled(isTouchDevice());
   }, []);
 
   if (!enabled || status !== "playing") return null;
+
+  // Determine contextual interactable
+  const dSmith = Math.hypot(heroX - SMITH_POS.x, heroZ - SMITH_POS.z);
+  const dShaman = Math.hypot(heroX - SHAMAN_POS.x, heroZ - SHAMAN_POS.z);
+  let interactLabel: string | null = null;
+  if (dSmith < VENDOR_INTERACT_RANGE) interactLabel = "Smith";
+  else if (dShaman < VENDOR_INTERACT_RANGE) interactLabel = "Shaman";
+  else {
+    const range = HERO_ATTACK_RANGE * rangeMultiplier(weapons);
+    let bestKind: string | null = null;
+    let bestD = range;
+    for (const r of resources) {
+      const d = Math.hypot(r.x - heroX, r.z - heroZ);
+      if (d < bestD) {
+        bestD = d;
+        bestKind = r.kind;
+      }
+    }
+    if (bestKind === "tree") interactLabel = "Chop";
+    else if (bestKind === "rock") interactLabel = "Mine";
+    else if (bestKind === "herb") interactLabel = "Pick";
+  }
 
   const updateFromPoint = (clientX: number, clientY: number) => {
     const el = padRef.current;
@@ -105,15 +138,17 @@ export function TouchControls() {
       >
         Attack
       </button>
-      <button
-        onTouchStart={(e) => {
-          e.preventDefault();
-          touchInput.interact = true;
-        }}
-        className="fixed bottom-36 right-10 z-30 flex h-16 w-16 touch-none select-none items-center justify-center rounded-full border-2 border-white/30 bg-amber-600/80 text-sm font-bold uppercase text-white shadow-xl active:scale-95"
-      >
-        Use
-      </button>
+      {interactLabel && (
+        <button
+          onTouchStart={(e) => {
+            e.preventDefault();
+            touchInput.interact = true;
+          }}
+          className="fixed bottom-36 right-10 z-30 flex h-20 w-20 touch-none select-none items-center justify-center rounded-full border-2 border-white/40 bg-amber-500/90 text-sm font-bold uppercase text-white shadow-xl active:scale-95"
+        >
+          {interactLabel}
+        </button>
+      )}
     </>
   );
 }

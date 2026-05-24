@@ -151,8 +151,34 @@ export function GameLoop() {
       interactRequested.current = false;
       const dSmith = Math.hypot(nx - SMITH_POS.x, nz - SMITH_POS.z);
       const dShaman = Math.hypot(nx - SHAMAN_POS.x, nz - SHAMAN_POS.z);
-      if (dSmith < VENDOR_INTERACT_RANGE) s.setOpenVendor("smith");
-      else if (dShaman < VENDOR_INTERACT_RANGE) s.setOpenVendor("shaman");
+      if (dSmith < VENDOR_INTERACT_RANGE) {
+        s.setOpenVendor("smith");
+      } else if (dShaman < VENDOR_INTERACT_RANGE) {
+        s.setOpenVendor("shaman");
+      } else {
+        // Try to chop/mine the nearest resource within attack range
+        const range = HERO_ATTACK_RANGE * rangeMultiplier(s.inventory.weapons);
+        let bestId: string | null = null;
+        let bestD = range;
+        for (const r of s.resources) {
+          const d = Math.hypot(r.x - nx, r.z - nz);
+          if (d < bestD) {
+            bestD = d;
+            bestId = r.id;
+          }
+        }
+        if (bestId && cd <= 0) {
+          dispatchAction({
+            type: "attack",
+            x: nx,
+            z: nz,
+            facing,
+            damageMul: damageMultiplier(s.inventory.weapons),
+            range,
+          });
+          s.setHeroAttackCd(HERO_ATTACK_COOLDOWN);
+        }
+      }
     }
 
     // Attack
