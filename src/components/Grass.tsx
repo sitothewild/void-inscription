@@ -8,6 +8,7 @@ import {
   Object3D,
   PlaneGeometry,
   DoubleSide,
+  type BufferAttribute,
 } from "three";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
 
