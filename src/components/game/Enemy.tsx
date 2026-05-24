@@ -17,6 +17,14 @@ export function Enemy({ enemy }: { enemy: EnemyT }) {
         <boxGeometry args={[0.35, 0.35, 0.35]} />
         <meshStandardMaterial color="#7a3a5a" />
       </mesh>
+      <mesh position={[-0.08, 1.15, 0.18]}>
+        <boxGeometry args={[0.07, 0.05, 0.02]} />
+        <meshBasicMaterial color="#ff5566" toneMapped={false} />
+      </mesh>
+      <mesh position={[0.08, 1.15, 0.18]}>
+        <boxGeometry args={[0.07, 0.05, 0.02]} />
+        <meshBasicMaterial color="#ff5566" toneMapped={false} />
+      </mesh>
       <mesh position={[0, 1.6, 0]} rotation={[0, 0, 0]}>
         <planeGeometry args={[0.8, 0.08]} />
         <meshBasicMaterial color="#222" />

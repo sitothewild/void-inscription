@@ -1,6 +1,7 @@
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Mesh } from "three";
+import { Sparkles } from "@react-three/drei";
 
 export function Seed() {
   const ref = useRef<Mesh>(null);
@@ -15,8 +16,22 @@ export function Seed() {
       </mesh>
       <mesh ref={ref} position={[0, 1.2, 0]} castShadow>
         <icosahedronGeometry args={[0.9, 0]} />
-        <meshStandardMaterial color="#9be29b" emissive="#3fa83f" emissiveIntensity={0.6} flatShading />
+        <meshStandardMaterial
+          color="#9be29b"
+          emissive="#5fff7f"
+          emissiveIntensity={2.4}
+          toneMapped={false}
+          flatShading
+        />
       </mesh>
+      <Sparkles
+        count={40}
+        scale={[3, 3, 3]}
+        position={[0, 1.4, 0]}
+        size={4}
+        speed={0.4}
+        color="#aaffb0"
+      />
     </group>
   );
 }
