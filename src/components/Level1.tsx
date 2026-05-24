@@ -12,6 +12,7 @@ import { Vendors } from "./Vendors";
 import { Animals } from "./Animals";
 import { Pylon } from "./Pylon";
 import { Projectiles } from "./Projectiles";
+import { InteractionSystem } from "./InteractionSystem";
 import { useProceduralTerrain } from "@/hooks/useProceduralTerrain";
 import { usePortalTrigger } from "@/hooks/usePortalTrigger";
 
@@ -82,6 +83,7 @@ export function Level1({ spawn, onEnterPortal }: Props) {
       <Pylon position={[0, terrain.sampleWorldY(0, 0) + 3, 0]} color={"#ffb060"} />
 
       <Projectiles />
+      <InteractionSystem playerRef={playerRef} />
 
       {/* Portals */}
       {portals.map((p) => (
