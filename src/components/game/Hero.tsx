@@ -73,12 +73,15 @@ export function Hero() {
 
   useEffect(() => {
     if (!world) return;
-    const c = world.createCharacterController(0.05);
+    // Small offset = fewer phantom contacts at the seams between adjacent
+    // slab cuboids. Generous autostep with a tiny min-width lets the capsule
+    // glide over any floating-point lip between tiles instead of snagging.
+    const c = world.createCharacterController(0.01);
     c.setApplyImpulsesToDynamicBodies(false);
-    c.enableAutostep(0.5, 0.2, true);
-    c.enableSnapToGround(0.5);
-    c.setMaxSlopeClimbAngle((46 * Math.PI) / 180);
-    c.setMinSlopeSlideAngle((60 * Math.PI) / 180);
+    c.enableAutostep(0.45, 0.02, true);
+    c.enableSnapToGround(0.25);
+    c.setMaxSlopeClimbAngle((50 * Math.PI) / 180);
+    c.setMinSlopeSlideAngle((62 * Math.PI) / 180);
     c.setSlideEnabled(true);
     ctrlRef.current = c;
     return () => {
@@ -122,8 +125,14 @@ export function Hero() {
       state.phase === "night" && links.berserker ? HERO_SPEED * 0.15 : 0;
     const speed = HERO_SPEED + speedBonus;
 
-    vy.current += -22 * dtc;
-    if (vy.current < -30) vy.current = -30;
+    // Lighter gravity + tighter terminal velocity → fewer hard "thunks" when
+    // crossing tile seams that briefly read as a 1-frame fall.
+    if (ctrlRef.current.computedGrounded()) {
+      vy.current = -2; // small downward bias keeps snap-to-ground engaged
+    } else {
+      vy.current += -20 * dtc;
+      if (vy.current < -28) vy.current = -28;
+    }
 
     const move = {
       x: dx * speed * dtc,
