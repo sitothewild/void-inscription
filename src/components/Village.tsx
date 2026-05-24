@@ -1,5 +1,8 @@
-import { useMemo } from "react";
-import { RigidBody } from "@react-three/rapier";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useFrame } from "@react-three/fiber";
+import { Group, Mesh } from "three";
+import { RigidBody, type RapierRigidBody } from "@react-three/rapier";
+import { onEdge, playerPos } from "@/game/inputStore";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
 
 function mulberry32(seed: number) {
@@ -85,6 +88,51 @@ function Gate({ data, radius }: { data: TerrainData; radius: number }) {
     [-2.6, data.sampleWorldY(-2.6, z) + 0.75, z],
     [2.6, data.sampleWorldY(2.6, z) + 0.75, z],
   ];
+  const [open, setOpen] = useState(false);
+  const leftRef = useRef<RapierRigidBody>(null);
+  const rightRef = useRef<RapierRigidBody>(null);
+  const ringRef = useRef<Mesh>(null);
+  const promptRef = useRef<Group>(null);
+  const openProgress = useRef(0);
+  const INTERACT_R = 4;
+
+  useEffect(() => {
+    return onEdge("action", () => {
+      const dx = playerPos.x - 0;
+      const dz = playerPos.z - z;
+      if (dx * dx + dz * dz < INTERACT_R * INTERACT_R) {
+        setOpen((o) => !o);
+      }
+    });
+  }, [z]);
+
+  useFrame((state, dt) => {
+    const target = open ? 1 : 0;
+    openProgress.current += (target - openProgress.current) * Math.min(1, dt * 4);
+    const swing = openProgress.current * (Math.PI / 2);
+    leftRef.current?.setNextKinematicRotation({
+      x: 0,
+      y: Math.sin(-swing / 2),
+      z: 0,
+      w: Math.cos(-swing / 2),
+    });
+    rightRef.current?.setNextKinematicRotation({
+      x: 0,
+      y: Math.sin(swing / 2),
+      z: 0,
+      w: Math.cos(swing / 2),
+    });
+    // Highlight when player is near
+    const dx = playerPos.x - 0;
+    const dz = playerPos.z - z;
+    const near = dx * dx + dz * dz < INTERACT_R * INTERACT_R;
+    if (promptRef.current) promptRef.current.visible = near;
+    if (ringRef.current && near) {
+      const pulse = 1 + Math.sin(state.clock.elapsedTime * 5) * 0.1;
+      ringRef.current.scale.setScalar(pulse);
+    }
+  });
+
   return (
     <group>
       {posts.map((p, i) => (
@@ -97,27 +145,35 @@ function Gate({ data, radius }: { data: TerrainData; radius: number }) {
         </mesh>
       </RigidBody>
       <RigidBody
-        type="fixed"
+        ref={leftRef}
+        type="kinematicPosition"
         colliders="cuboid"
-        position={[-1.55, y + 0.65, z + 0.25]}
-        rotation={[0, -0.45, 0]}
+        position={[-2.5, y + 0.65, z]}
       >
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[2.2, 1.2, 0.16]} />
+        <mesh castShadow receiveShadow position={[1.1, 0, 0]}>
+          <boxGeometry args={[2.0, 1.6, 0.16]} />
           <meshStandardMaterial color={"#7a4d2a"} roughness={1} />
         </mesh>
       </RigidBody>
       <RigidBody
-        type="fixed"
+        ref={rightRef}
+        type="kinematicPosition"
         colliders="cuboid"
-        position={[1.55, y + 0.65, z + 0.25]}
-        rotation={[0, 0.45, 0]}
+        position={[2.5, y + 0.65, z]}
       >
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[2.2, 1.2, 0.16]} />
+        <mesh castShadow receiveShadow position={[-1.1, 0, 0]}>
+          <boxGeometry args={[2.0, 1.6, 0.16]} />
           <meshStandardMaterial color={"#7a4d2a"} roughness={1} />
         </mesh>
       </RigidBody>
+      {/* Interaction prompt */}
+      <group ref={promptRef} position={[0, y + 0.05, z]} visible={false}>
+        <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[1.2, 1.5, 32]} />
+          <meshBasicMaterial color={"#ffd27a"} transparent opacity={0.9} toneMapped={false} depthWrite={false} />
+        </mesh>
+        <pointLight color={"#ffd27a"} intensity={3} distance={5} position={[0, 1, 0]} />
+      </group>
     </group>
   );
 }
