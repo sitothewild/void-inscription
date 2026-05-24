@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import {
   Color,
@@ -25,11 +25,13 @@ function mulberry32(seed: number) {
 type Props = {
   data: TerrainData;
   count?: number;
+  /** Override the village exclusion radius. Defaults to data.villageRadius + 2. */
   villageRadius?: number;
 };
 
 /** Instanced wind-animated grass blades on plains/forest tiles. */
-export function Grass({ data, count = 6000, villageRadius = 16 }: Props) {
+export function Grass({ data, count = 6000, villageRadius }: Props) {
+  const exclusion = villageRadius ?? data.villageRadius + 2;
   const meshRef = useRef<InstancedMesh>(null!);
   const matRef = useRef<MeshStandardMaterial>(null!);
   const timeUniform = useRef({ value: 0 });
@@ -52,7 +54,7 @@ export function Grass({ data, count = 6000, villageRadius = 16 }: Props) {
       attempts++;
       const x = (rng() * 2 - 1) * half * 0.9;
       const z = (rng() * 2 - 1) * half * 0.9;
-      if (Math.hypot(x, z) < villageRadius) continue;
+      if (Math.hypot(x, z) < exclusion) continue;
       const h = data.sampleAt(x, z);
       if (h < 0.2 || h > 0.65) continue; // plains+forest only
       const y = h * data.maxHeight;
@@ -67,25 +69,29 @@ export function Grass({ data, count = 6000, villageRadius = 16 }: Props) {
       placed++;
     }
     return { geometry: geo, instances: { matrices, colors } };
-  }, [data, count, villageRadius]);
+  }, [data, count, exclusion]);
 
-  // Populate instance matrices + colors after mount
-  const initialized = useRef(false);
-  useFrame((state, dt) => {
-    timeUniform.current.value = state.clock.elapsedTime;
-    if (!initialized.current && meshRef.current) {
-      for (let i = 0; i < instances.matrices.length; i++) {
-        meshRef.current.setMatrixAt(i, instances.matrices[i]);
-        meshRef.current.setColorAt(i, instances.colors[i]);
-      }
-      meshRef.current.instanceMatrix.needsUpdate = true;
-      if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
-      initialized.current = true;
+  // Re-upload instance matrices + colors whenever the placement regenerates
+  // (e.g. village radius changes).
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    for (let i = 0; i < instances.matrices.length; i++) {
+      mesh.setMatrixAt(i, instances.matrices[i]);
+      mesh.setColorAt(i, instances.colors[i]);
     }
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.count = instances.matrices.length;
+  }, [instances]);
+
+  useFrame((state) => {
+    timeUniform.current.value = state.clock.elapsedTime;
   });
 
   return (
     <instancedMesh
+      key={instances.matrices.length}
       ref={meshRef}
       args={[geometry, undefined, instances.matrices.length]}
       castShadow={false}

@@ -30,6 +30,8 @@ export type TerrainData = {
   /** Sample biome at world (x, z). */
   biomeAt: (x: number, z: number) => Biome;
   seed: number;
+  /** Radius of the flattened village pad (world units). */
+  villageRadius: number;
 };
 
 export function useProceduralTerrain(
@@ -110,6 +112,7 @@ export function useProceduralTerrain(
       sampleWorldY,
       biomeAt: sampleBiome,
       seed,
+      villageRadius,
     };
   }, [seed, segments, worldSize, maxHeight, villageRadius]);
 }
