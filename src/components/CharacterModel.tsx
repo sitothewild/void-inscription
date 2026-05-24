@@ -13,6 +13,8 @@ type Props = {
   yOffset?: number;
   /** When true, procedural walk bob is applied. Used as fallback when GLB lacks clips. */
   moving?: boolean;
+  /** Optional per-frame getter for moving state (avoids re-renders). */
+  getMoving?: () => boolean;
   /** Procedural anim speed multiplier. */
   rate?: number;
 };
@@ -21,7 +23,7 @@ type Props = {
  * Loads a GLB and plays an animation. Clones the scene so multiple instances
  * of the same model can coexist with independent skeletons.
  */
-export function CharacterModel({ url, scale = 1, animation, yOffset = 0, moving = false, rate = 1 }: Props) {
+export function CharacterModel({ url, scale = 1, animation, yOffset = 0, moving = false, getMoving, rate = 1 }: Props) {
   const gltf = useGLTF(url);
   const cloned = useMemo(() => SkeletonUtils.clone(gltf.scene), [gltf.scene]);
   const autoScale = useMemo(() => {
@@ -68,7 +70,8 @@ export function CharacterModel({ url, scale = 1, animation, yOffset = 0, moving 
     const g = animRef.current;
     if (!g) return;
     const t = state.clock.elapsedTime * rate + seed;
-    if (moving) {
+    const isMoving = getMoving ? getMoving() : moving;
+    if (isMoving) {
       const stride = Math.sin(t * 10);
       g.position.y = Math.abs(stride) * 0.08;
       g.rotation.z = stride * 0.06;

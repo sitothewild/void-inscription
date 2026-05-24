@@ -210,7 +210,7 @@ export function Player({ spawn, camera, onRef }: Props) {
           url="/models/characters/warrior.glb"
           scale={1.05}
           animation="idle"
-          moving={movingRef.current}
+          getMoving={() => movingRef.current}
         />
         {/* Bow in hand */}
         <group position={[0.45, 1.1, 0.1]} rotation={[0, Math.PI / 2, Math.PI / 2]}>
