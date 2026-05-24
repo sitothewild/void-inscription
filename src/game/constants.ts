@@ -10,7 +10,7 @@ export const GRID_RADIUS = 11; // tiles from center (covers island)
 export const DAY_DURATION = 180; // seconds
 export const NIGHT_DURATION = 120;
 
-export const HERO_SPEED = 6;
+export const HERO_SPEED = 9.5;
 export const HERO_MAX_HP = 100;
 export const HERO_ATTACK_RANGE = 2.2;
 export const HERO_ATTACK_DAMAGE = 25;
