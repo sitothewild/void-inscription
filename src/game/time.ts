@@ -100,8 +100,9 @@ export function computeSkyEnv(tt: number): SkyEnv {
   const daylight = clamp01(sunY * 3 + 0.4);
 
   const sunIntensity = clamp01(sunY * 1.6) * 1.4; // 0 at horizon → 1.4 at noon
-  const moonIntensity = clamp01(-sunY * 1.5) * 0.55;
-  const ambientIntensity = 0.18 + daylight * 0.42;
+  // Brighter moonlight so the painted island is still readable at night.
+  const moonIntensity = clamp01(-sunY * 1.2 + 0.15) * 1.1;
+  const ambientIntensity = 0.45 + daylight * 0.35;
 
   // Colors: cool moonlight at night, warm orange near horizon, neutral midday.
   const horizonness = 1 - Math.abs(sunY); // 1 at horizon, 0 at zenith/nadir

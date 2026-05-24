@@ -12,10 +12,46 @@ import { HUD } from "./HUD";
 import { PauseMenu } from "./PauseMenu";
 import { Shop } from "./Shop";
 import { InventoryWindow } from "./InventoryWindow";
+import { AdminConsole } from "./AdminConsole";
+import { MapOverlay } from "./MapOverlay";
+import { ControlsHUD } from "./ControlsHUD";
+import { useEffect } from "react";
+import { emitEdge } from "@/game/inputStore";
 
 export function Game() {
   const [currentLevel, setCurrentLevel] = useState<1 | 2 | 3>(1);
   const [playerSpawnPos, setPlayerSpawnPos] = useState<[number, number, number]>([0, 90, 0]);
+
+  // Global keyboard wiring:
+  //   E -> interaction edge (harvest / talk)
+  //   Track Ctrl/Alt for admin flight ascend/descend.
+  useEffect(() => {
+    const mods = ((window as unknown as { __mods?: { ctrl: boolean; alt: boolean } }).__mods ??=
+      { ctrl: false, alt: false });
+    const onDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey) mods.ctrl = true;
+      if (e.altKey) mods.alt = true;
+      if ((e.code === "KeyE") && !e.repeat) {
+        emitEdge("action");
+      }
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (!e.ctrlKey) mods.ctrl = false;
+      if (!e.altKey) mods.alt = false;
+    };
+    const onBlur = () => {
+      mods.ctrl = false;
+      mods.alt = false;
+    };
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onDown);
+      window.removeEventListener("keyup", onUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
 
   const keyMap = useMemo(
     () => [
@@ -75,9 +111,12 @@ export function Game() {
 
       <HUD />
       <TouchControls />
+      <ControlsHUD />
       <PauseMenu />
       <Shop />
       <InventoryWindow />
+      <AdminConsole />
+      <MapOverlay />
 
       <div
         style={{
@@ -96,7 +135,7 @@ export function Game() {
         }}
       >
         <div>Level: {currentLevel}</div>
-        <div>WASD move · Space jump · E interact · I bag</div>
+        <div>WASD run · Space jump · E interact · I bag · M map · ` admin</div>
         <div>Run to a portal to enter</div>
       </div>
     </div>
