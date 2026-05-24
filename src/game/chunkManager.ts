@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import { mobileAxis } from "./inputStore";
 
 export type ChunkLOD = 0 | 1 | 2;
@@ -45,4 +46,12 @@ export const chunkManager = {
 
 export function setPlayerChunkPosition(x: number, z: number) {
   chunkManager.updatePlayer(x + mobileAxis.x * 0.001, z + mobileAxis.y * 0.001);
+}
+
+export function useChunkSpecs() {
+  return useSyncExternalStore(
+    (cb) => chunkManager.subscribe(cb),
+    () => chunkManager.specs(),
+    () => chunkManager.specs(),
+  );
 }
