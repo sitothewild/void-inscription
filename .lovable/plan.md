@@ -1,88 +1,70 @@
 
-# Midgard-Style Browser Prototype — Plan
+# Milestone 2 — Online Co-op
 
-## Honest scope note
+## Goal
 
-A true Tribe of Midgard clone is a multi-year studio effort. What's realistic here is an inspired prototype: a small isometric survival/defense loop you can play with friends in the browser. Expect "indie game jam" quality, not Norsfell production value. Online co-op especially is the riskiest piece — browser games over Supabase Realtime work for 2–4 players in the same region with visible latency, not for fast-paced combat at scale.
+Let 2–4 players share a single run via a 6-character room code. Host's browser owns the world (enemies, resources, Seed, day/night); other clients send their inputs and render the host's snapshot.
 
-I recommend we build this in 3 incremental milestones so you can play after each one. This plan covers Milestone 1 + the scaffolding for 2 and 3.
+## Architecture
 
-## Gameplay loop (target)
+- Enable Lovable Cloud. Use Supabase **Realtime only** (no DB writes during play — keeps latency low and avoids RLS friction).
+- One channel per room: `room:{CODE}`.
+- **Anonymous auth** so each tab has a stable `user_id` for Presence.
+- Two message kinds on the channel:
+  - **broadcast `input`** — clients → host, ~15 Hz: `{ heroX, heroZ, facing, attacking }`.
+  - **broadcast `snapshot`** — host → everyone, ~12 Hz: world delta (`players[]`, `enemies[]`, `resources[]`, `seedHp`, `phase`, `phaseTime`, `day`, `status`).
+  - **broadcast `event`** — one-shots: `gather`, `craft`, `chat`, `joined`, `left`.
+- **Presence** tracks `{ userId, name, color, isHost }`. Host = lowest userId in presence (deterministic; survives reconnects of non-hosts).
 
-- Day: explore a procedural island, chop trees, mine rocks, hunt boars, gather resources.
-- Dusk: return to the Seed of Yggdrasil (your base), craft gear at a forge, build palisades.
-- Night: waves of Helthings spawn and attack the Seed. Defend until dawn.
-- Lose: Seed HP hits 0. Win: survive N nights and defeat the Jötunn boss.
+## Routes
 
-## Tech choices
+- `/lobby` — Enter name, then **Create room** (generates code, navigates to `/play?room=XXXX&host=1`) or **Join room** (enter code, navigates to `/play?room=XXXX`).
+- `/play` — already exists. Reads `?room` search param. If present → multiplayer mode. If absent → unchanged single-player.
+- Landing `/` — add a "Play with friends" CTA next to the existing "Enter Midgard".
 
-- Rendering: `three` + `@react-three/fiber` + `@react-three/drei` (camera, GLTF loader, instancing).
-- Physics/collision: lightweight AABB + grid checks (no full physics engine — Rapier is heavy and overkill).
-- Controls: top-down isometric ortho camera, WASD move, mouse-click attack/interact, click-to-place build.
-- Assets: free CC0 GLTF from Kenney's "Mini" packs (Viking-friendly low-poly). Bundled in `src/assets/models/`.
-- State: Zustand for local game state, React Query only for menus.
-- Multiplayer: Supabase Realtime (Lovable Cloud) — Presence for player list, Broadcast for movement/actions at ~15 Hz, Postgres for persistent runs.
-- Auth: anonymous sessions + optional display name (no email required for a game).
+## Files
 
-## Milestone 1 — Single-player core (this build)
+New:
+- `src/lib/net/room.ts` — channel setup, presence, broadcast helpers, host election.
+- `src/lib/net/codec.ts` — compact snapshot/input shapes.
+- `src/game/multiplayer.ts` — `useMultiplayer()` hook: subscribes to room, runs host loop OR client loop based on `isHost`.
+- `src/components/game/RemotePlayer.tsx` — render other players (reuse Hero geometry, different color + name label via drei `Text`).
+- `src/components/hud/Lobby.tsx` — name + room code UI.
+- `src/components/hud/RoomBar.tsx` — small overlay in `/play`: room code (click to copy), connected players, host indicator, leave button.
+- `src/routes/lobby.tsx` — lobby page.
 
-1. Lovable Cloud enabled; `runs` and `players` tables created with RLS.
-2. Three.js scene: isometric ortho camera, lit ground plane, skybox, day/night color cycle.
-3. Hero character (GLTF) with WASD movement, idle/run/attack animations, click-to-attack.
-4. World: 64×64 tile island, procedurally placed trees and rocks (deterministic seed).
-5. Resource gathering: click tree → chop animation → wood +1; same for stone.
-6. Inventory + simple crafting UI (axe, sword, palisade).
-7. One enemy type (Helthing): wanders, chases on sight, melee attack.
-8. The Seed: central object with HP bar. Enemies path to it at night.
-9. Day/night cycle (~3 min day, ~2 min night). Night spawns 5–10 enemies.
-10. HUD: health, stamina, inventory, day counter, Seed HP.
-11. Game over + restart.
+Modified:
+- `src/routes/play.tsx` — read `?room`, mount multiplayer hook when present, render `RemotePlayer`s.
+- `src/components/game/GameLoop.tsx` — split:
+  - Always: hero input + facing + local hero attack feedback.
+  - Host only: world tick (current logic — enemies, resources, day/night).
+  - Non-host: skip world tick; consume snapshots to update store (enemies, seed, day/night, resources). Local hero is predicted; remote heroes come from snapshots.
+- `src/game/store.ts` — add `players: Record<userId, RemotePlayerState>`, `selfId`, `isHost`, `roomCode`, plus `applySnapshot(snap)` and `applyInput(userId, input)` actions.
+- `src/routes/index.tsx` — add "Play with friends" secondary button → `/lobby`.
 
-Route: `/play` (single-player). Landing page `/` explains the game with a Play button.
+## Game tweaks for co-op
 
-## Milestone 2 — Co-op (separate build)
+- Enemy aggro picks **nearest player** in sight, not just local hero.
+- Seed HP and day counter come from snapshot on clients; host runs the existing timer.
+- Resources: when host removes one, snapshot diff handles it; clients send a `gather` request, host validates range and applies.
+- Damage attribution stays simple (no scoring in M2).
 
-- Lobby route `/lobby` — create or join a room code.
-- Supabase Realtime channel per room. Broadcast: `move`, `attack`, `hit`, `gather`, `build`. Presence: connected players.
-- Authoritative-ish host model: room creator's client owns enemy AI and world state, sends snapshots at 10 Hz; other clients send inputs.
-- Render remote players with name labels.
-- Caveats I will set expectations on: ~100–300 ms perceived latency, no rollback, host migration not handled (if host disconnects, run ends).
+## Caveats I will surface in the UI
 
-## Milestone 3 — Depth (separate build)
+- "Co-op is experimental. Best with 2–4 players in the same region. Expect 100–300 ms latency on combat."
+- If the host disconnects, the run ends (host migration is out of scope for M2).
+- No reconnect/resume — leaving the tab ends your participation.
 
-- 2 more enemy types, 1 boss.
-- Procedural island variants (forest / tundra / coast biomes).
-- Building system: palisades, watchtowers, second forge.
-- Persistent meta-progression: unlock classes between runs.
+## What's NOT in M2
 
-## Files in Milestone 1
+- No persistence of runs to Postgres (deferred to M3 if needed for leaderboards).
+- No voice/text chat (could add text chat in M3; trivial on the same channel).
+- No matchmaking / public rooms — codes only.
+- No host migration.
 
-- Schema migration: `runs`, `players`, `run_events` tables + RLS.
-- `src/routes/index.tsx` — replace placeholder with landing page (title, blurb, Play CTA).
-- `src/routes/play.tsx` — game canvas + HUD overlay.
-- `src/game/` — engine code (not React):
-  - `world.ts` (procedural map gen, deterministic RNG)
-  - `entities.ts` (hero, enemies, resources, seed)
-  - `combat.ts`, `inventory.ts`, `crafting.ts`, `daynight.ts`, `ai.ts`
-  - `loop.ts` (fixed-timestep update loop)
-  - `store.ts` (Zustand)
-- `src/components/game/` — R3F components: `Scene`, `Hero`, `Enemy`, `Tree`, `Rock`, `Seed`, `Ground`, `IsoCamera`, `Lighting`.
-- `src/components/hud/` — `HealthBar`, `Inventory`, `CraftingPanel`, `DayCounter`, `SeedHealth`, `GameOver`.
-- `src/assets/models/` — downloaded CC0 GLTF files (hero, enemy, tree, rock, seed).
-- `package.json` — add `three`, `@react-three/fiber`, `@react-three/drei`, `@types/three`, `zustand`.
+## Risks
 
-## What I will NOT do in Milestone 1
+- Lovable Cloud Realtime is a Postgres channel, not a game server. Snapshot rate stays ≤ 12 Hz to stay within message limits.
+- State drift: clients fully overwrite world state from each snapshot (no interpolation in M2). Remote players will look slightly jerky; the local hero stays smooth via client-side prediction.
 
-- No online multiplayer (that's M2).
-- No procedural biomes beyond one island.
-- No boss, no progression unlocks.
-- No mobile/touch controls (desktop only).
-- No audio in M1 (can add SFX/music in M3 if you want).
-
-## Risks / open questions
-
-- Asset licensing: I'll use Kenney CC0 packs; if you want custom art, that's a separate engagement.
-- Performance: targeting 60 FPS on a modern laptop with ~50 enemies on screen. Older hardware/phones will struggle.
-- Online co-op over Supabase Realtime is not a real game netcode stack. If smoothness matters, the right answer is a dedicated server (Colyseus on Fly.io, etc.), which is out of Lovable's scope.
-
-Approve and I'll start with Milestone 1.
+Approve and I'll enable Cloud, scaffold the lobby + room channel, and wire host/client modes into the existing scene.
