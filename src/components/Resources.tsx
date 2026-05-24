@@ -35,7 +35,7 @@ const BUCKETS: Bucket[] = [
   { kind: "mushroom", url: "/models/nature/mushroom.glb", seed: 4001, count: 80, hMin: 0.2, hMax: 0.45, scale: [0.5, 0.9], baseScale: 0.8 },
 ];
 
-export function Resources({ data }: { data: TerrainData }) {
+export function Resources({ data, densityMultiplier = 1 }: { data: TerrainData; densityMultiplier?: number }) {
   const exclusion = data.villageRadius + 3;
   const items = useMemo(() => {
     const out: Omit<Resource, "id">[] = [];
@@ -44,7 +44,8 @@ export function Resources({ data }: { data: TerrainData }) {
       const rng = mulberry32(b.seed);
       let attempts = 0;
       let placed = 0;
-      while (placed < b.count && attempts < b.count * 25) {
+      const targetCount = Math.round(b.count * densityMultiplier);
+      while (placed < targetCount && attempts < targetCount * 25) {
         attempts++;
         const x = (rng() * 2 - 1) * half * 0.92;
         const z = (rng() * 2 - 1) * half * 0.92;
@@ -62,7 +63,7 @@ export function Resources({ data }: { data: TerrainData }) {
       }
     }
     return out;
-  }, [data, exclusion]);
+  }, [data, exclusion, densityMultiplier]);
 
   useEffect(() => {
     world.setResources(items);
