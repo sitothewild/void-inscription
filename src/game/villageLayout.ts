@@ -39,7 +39,7 @@ export const VILLAGE_GATE_ANGLES = [
 export function computeHutSlots(gateAngles: number[] = VILLAGE_GATE_ANGLES): HutSlot[] {
   const rng = mulberry32(99);
   const slots: HutSlot[] = [];
-  const radius = 10;
+  const radius = 13;
   // Keep huts out of every gate's approach corridor (slightly wider than the
   // gate opening so the path stays clear).
   const gateHalf = Math.PI * 0.18;
