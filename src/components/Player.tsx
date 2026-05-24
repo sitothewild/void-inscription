@@ -8,7 +8,7 @@ import {
   type RapierCollider,
   type RapierRigidBody,
 } from "@react-three/rapier";
-import { Group, Vector3 } from "three";
+import { Group, Plane, Raycaster, Vector2, Vector3 } from "three";
 import { CharacterModel, type CharState } from "./CharacterModel";
 import { fireArrow } from "./Projectiles";
 import { mobileAxis, onEdge, playerPos, playerState, runState } from "@/game/inputStore";
@@ -35,6 +35,12 @@ export function Player({ spawn, camera, onRef }: Props) {
   const { rapier, world } = useRapier();
   const controllerRef = useRef<ReturnType<typeof world.createCharacterController> | null>(null);
   const cam = useThree((s) => s.camera);
+  const pointer = useThree((s) => s.pointer);
+  const gl = useThree((s) => s.gl);
+  const aimRaycaster = useRef(new Raycaster());
+  const aimPlane = useRef(new Plane(new Vector3(0, 1, 0), 0));
+  const aimPoint = useRef(new Vector3());
+  const pointerInside = useRef(false);
   const targetCam = useRef(new Vector3());
   const targetLook = useRef(new Vector3());
   const facing = useRef(0);
@@ -58,6 +64,22 @@ export function Player({ spawn, camera, onRef }: Props) {
       controllerRef.current = null;
     };
   }, [world]);
+
+  // Track whether the mouse is over the canvas so we only override facing
+  // with mouse aim when the player is actually pointing at the game.
+  useEffect(() => {
+    const el = gl.domElement;
+    const onEnter = () => (pointerInside.current = true);
+    const onLeave = () => (pointerInside.current = false);
+    el.addEventListener("pointerenter", onEnter);
+    el.addEventListener("pointerleave", onLeave);
+    el.addEventListener("pointermove", onEnter);
+    return () => {
+      el.removeEventListener("pointerenter", onEnter);
+      el.removeEventListener("pointerleave", onLeave);
+      el.removeEventListener("pointermove", onEnter);
+    };
+  }, [gl]);
 
   const shoot = () => {
     const now = performance.now();
@@ -179,13 +201,28 @@ export function Player({ spawn, camera, onRef }: Props) {
       verticalVelocity.current = JUMP_IMPULSE;
     }
 
-    // Face movement direction
-    if (len > 0 && visualRef.current) {
-      const desired = Math.atan2(dx, dz);
+    // Face mouse cursor when aiming (bow is always equipped). Falls back to
+    // movement direction on mobile / when the pointer is off the canvas.
+    let desired: number | null = null;
+    const hasMouse = matchMedia("(pointer: fine)").matches;
+    if (hasMouse && pointerInside.current) {
+      aimPlane.current.constant = -t.y;
+      aimRaycaster.current.setFromCamera(pointer as Vector2, cam);
+      const hit = aimRaycaster.current.ray.intersectPlane(aimPlane.current, aimPoint.current);
+      if (hit) {
+        const ax = aimPoint.current.x - t.x;
+        const az = aimPoint.current.z - t.z;
+        if (ax * ax + az * az > 0.01) desired = Math.atan2(ax, az);
+      }
+    }
+    if (desired === null && len > 0) {
+      desired = Math.atan2(dx, dz);
+    }
+    if (desired !== null && visualRef.current) {
       let delta = desired - facing.current;
       while (delta > Math.PI) delta -= Math.PI * 2;
       while (delta < -Math.PI) delta += Math.PI * 2;
-      facing.current += delta * 0.2;
+      facing.current += delta * 0.25;
       visualRef.current.rotation.y = facing.current;
     }
 

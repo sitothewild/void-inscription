@@ -35,7 +35,7 @@ export function Game() {
   };
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-black">
+    <div className="relative h-screen w-screen overflow-hidden bg-black" style={{ cursor: "crosshair" }}>
       <KeyboardControls map={keyMap}>
         <Canvas
           shadows
