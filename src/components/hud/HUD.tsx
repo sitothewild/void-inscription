@@ -5,6 +5,7 @@ import {
   SEED_MAX_HP,
 } from "@/game/constants";
 import { useGame } from "@/game/store";
+import { dispatchAction } from "@/game/multiplayer";
 
 function Bar({
   label,
@@ -37,8 +38,11 @@ function Bar({
 }
 
 export function HUD() {
-  const { heroHp, seedHp, day, phase, phaseTime, inventory, status, reset, craft } =
+  const { heroHp, seedHp, day, phase, phaseTime, inventory, status } =
     useGame();
+  const doCraft = (item: "axe" | "sword" | "palisade") =>
+    dispatchAction({ type: "craft", item });
+  const doReset = () => dispatchAction({ type: "reset" });
   const phaseMax = phase === "day" ? DAY_DURATION : NIGHT_DURATION;
   const mm = Math.floor(phaseTime / 60);
   const ss = Math.floor(phaseTime % 60)
@@ -90,21 +94,21 @@ export function HUD() {
       <div className="pointer-events-auto absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2 rounded-md bg-black/50 p-2 backdrop-blur-sm">
         <button
           disabled={inventory.axe || inventory.wood < 5 || inventory.stone < 2}
-          onClick={() => craft("axe")}
+          onClick={() => doCraft("axe")}
           className="rounded bg-amber-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
         >
           Axe (5W 2S)
         </button>
         <button
           disabled={inventory.sword || inventory.wood < 3 || inventory.stone < 5}
-          onClick={() => craft("sword")}
+          onClick={() => doCraft("sword")}
           className="rounded bg-slate-500 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
         >
           Sword (3W 5S)
         </button>
         <button
           disabled={inventory.wood < 4}
-          onClick={() => craft("palisade")}
+          onClick={() => doCraft("palisade")}
           className="rounded bg-stone-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
         >
           Palisade (4W)
@@ -127,7 +131,7 @@ export function HUD() {
                 : `You held out for ${day} day${day === 1 ? "" : "s"}.`}
             </p>
             <button
-              onClick={() => reset()}
+              onClick={doReset}
               className="rounded bg-emerald-600 px-6 py-3 font-semibold hover:bg-emerald-500"
             >
               Play again

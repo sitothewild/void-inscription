@@ -9,12 +9,11 @@ import {
   ENEMY_SIGHT,
   ENEMY_SPEED,
   HERO_ATTACK_COOLDOWN,
-  HERO_ATTACK_DAMAGE,
-  HERO_ATTACK_RANGE,
   HERO_SPEED,
   ISLAND_RADIUS,
 } from "@/game/constants";
 import { mulberry32 } from "@/game/rng";
+import { applyAction, dispatchAction, hostActionQueue } from "@/game/multiplayer";
 
 // Keyboard state (module-level so handlers + frame share)
 const keys = new Set<string>();
@@ -71,8 +70,11 @@ export function GameLoop() {
     const s = useGame.getState();
     if (s.status !== "playing") return;
 
-    // ---- Phase timer
-    s.tickPhase(dt);
+    const isMultiplayer = !!s.roomCode;
+    const isAuthoritative = !isMultiplayer || s.isHost;
+
+    // ---- Phase timer (host or single-player)
+    if (isAuthoritative) s.tickPhase(dt);
 
     // ---- Hero movement
     let dx = 0;
@@ -103,46 +105,30 @@ export function GameLoop() {
       Math.hypot(fx, fz) > 0.01 ? Math.atan2(fx, fz) : s.heroFacing;
     s.setHero(nx, nz, facing);
 
-    // ---- Hero attack
+    // ---- Hero attack cooldown is always local for responsive UX
     const cd = Math.max(0, s.heroAttackCd - dt);
     s.setHeroAttackCd(cd);
     if (attackRequested.current) {
       attackRequested.current = false;
       if (cd <= 0) {
-        const dmg = HERO_ATTACK_DAMAGE * (s.inventory.sword ? 1.5 : 1);
-        // Target nearest enemy in range and roughly in facing arc
-        let bestE: string | null = null;
-        let bestD = HERO_ATTACK_RANGE;
-        for (const e of s.enemies) {
-          const d = Math.hypot(e.x - nx, e.z - nz);
-          if (d < bestD) {
-            bestD = d;
-            bestE = e.id;
-          }
-        }
-        if (bestE) {
-          s.damageEnemy(bestE, dmg);
-        } else {
-          // Try resource
-          let bestR: string | null = null;
-          let bestRd = HERO_ATTACK_RANGE;
-          for (const r of s.resources) {
-            const d = Math.hypot(r.x - nx, r.z - nz);
-            if (d < bestRd) {
-              bestRd = d;
-              bestR = r.id;
-            }
-          }
-          if (bestR) {
-            s.damageResource(bestR, 1);
-            const after = useGame
-              .getState()
-              .resources.find((r) => r.id === bestR);
-            if (after && after.hp <= 0) s.removeResource(bestR);
-          }
-        }
+        dispatchAction({
+          type: "attack",
+          x: nx,
+          z: nz,
+          facing,
+          sword: s.inventory.sword,
+        });
         s.setHeroAttackCd(HERO_ATTACK_COOLDOWN);
       }
+    }
+
+    // ---- Host-only: world simulation ----
+    if (!isAuthoritative) return;
+
+    // Drain queued actions (from self in single-player, or from clients via network)
+    while (hostActionQueue.length > 0) {
+      const { from, action } = hostActionQueue.shift()!;
+      applyAction(from, action);
     }
 
     // ---- Night spawn
@@ -175,15 +161,30 @@ export function GameLoop() {
       }
     }
 
-    // ---- Enemy AI
+    // ---- Enemy AI (targets nearest player including remote)
     const after = useGame.getState();
+    const playerPositions: { id: string; x: number; z: number; isSelf: boolean }[] = [
+      { id: after.selfId ?? "self", x: nx, z: nz, isSelf: true },
+    ];
+    for (const [id, p] of Object.entries(after.players)) {
+      playerPositions.push({ id, x: p.x, z: p.z, isSelf: false });
+    }
     for (const e of after.enemies) {
-      // Aggro hero if close, else target seed
-      const distHero = Math.hypot(e.x - nx, e.z - nz);
-      const target =
-        distHero < ENEMY_SIGHT && after.phase === "night"
-          ? { x: nx, z: nz, kind: "hero" as const }
-          : { x: 0, z: 0, kind: "seed" as const };
+      // Aggro nearest player if in sight (night only), else target seed
+      let nearest: { x: number; z: number; isSelf: boolean } | null = null;
+      let nd = ENEMY_SIGHT;
+      if (after.phase === "night") {
+        for (const p of playerPositions) {
+          const d = Math.hypot(e.x - p.x, e.z - p.z);
+          if (d < nd) {
+            nd = d;
+            nearest = p;
+          }
+        }
+      }
+      const target = nearest
+        ? { x: nearest.x, z: nearest.z, kind: "hero" as const, isSelf: nearest.isSelf }
+        : { x: 0, z: 0, kind: "seed" as const, isSelf: false };
       const dxE = target.x - e.x;
       const dzE = target.z - e.z;
       const dE = Math.hypot(dxE, dzE);
@@ -195,8 +196,23 @@ export function GameLoop() {
         ex += (dxE / dE) * ENEMY_SPEED * dt;
         ez += (dzE / dE) * ENEMY_SPEED * dt;
       } else if (newCd <= 0) {
-        if (target.kind === "hero") after.damageHero(ENEMY_DAMAGE);
-        else after.damageSeed(ENEMY_DAMAGE);
+        if (target.kind === "hero") {
+          if (target.isSelf) {
+            after.damageHero(ENEMY_DAMAGE);
+          } else if (nearest) {
+            // damage remote player in store; snapshot will propagate hp
+            const cur = after.players[nearest && (playerPositions.find(p => p === nearest)?.id ?? "")];
+            // Simpler: find their id again
+            const hitId = Object.entries(after.players).find(
+              ([, pp]) => pp.x === nearest!.x && pp.z === nearest!.z,
+            )?.[0];
+            if (hitId) {
+              const cp = after.players[hitId];
+              after.setPlayer(hitId, { ...cp, hp: Math.max(0, cp.hp - ENEMY_DAMAGE) });
+            }
+            void cur;
+          }
+        } else after.damageSeed(ENEMY_DAMAGE);
         newCd = ENEMY_ATTACK_COOLDOWN;
       }
       after.updateEnemy(e.id, { x: ex, z: ez, attackCd: newCd });
