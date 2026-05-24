@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import {
+  BufferAttribute,
+  BufferGeometry,
   Color,
+  FrontSide,
   InstancedMesh,
   Matrix4,
   MeshStandardMaterial,
   Object3D,
-  PlaneGeometry,
-  DoubleSide,
-  type BufferAttribute,
 } from "three";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
 
@@ -30,48 +30,93 @@ type Props = {
   villageRadius?: number;
 };
 
+/** Build one cross-shaped tapered blade (two perpendicular blades sharing a base). */
+function makeBladeGeometry() {
+  // Per blade: 5 verts (base L/R, mid L/R, tip), 3 triangles.
+  // Two blades crossed at 90° → 10 verts, 6 triangles.
+  const W = 0.05; // base half-width
+  const H = 0.65; // height
+  const positions: number[] = [];
+  const uvs: number[] = []; // we use v (uv.y) as height ratio for shader bend & color
+  const indices: number[] = [];
+
+  const addBlade = (angle: number) => {
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    // local (x, y, 0) → world (c*x, y, s*x)
+    const v = (x: number, y: number) => positions.push(c * x, y, s * x);
+    const base = positions.length / 3;
+    v(-W, 0); uvs.push(0, 0);              // 0 base L
+    v( W, 0); uvs.push(1, 0);              // 1 base R
+    v(-W * 0.7, H * 0.55); uvs.push(0, 0.55); // 2 mid L
+    v( W * 0.7, H * 0.55); uvs.push(1, 0.55); // 3 mid R
+    v(0, H); uvs.push(0.5, 1);             // 4 tip
+    indices.push(base, base + 1, base + 2);
+    indices.push(base + 1, base + 3, base + 2);
+    indices.push(base + 2, base + 3, base + 4);
+  };
+  addBlade(0);
+  addBlade(Math.PI / 2);
+
+  const geo = new BufferGeometry();
+  geo.setAttribute("position", new BufferAttribute(new Float32Array(positions), 3));
+  geo.setAttribute("uv", new BufferAttribute(new Float32Array(uvs), 2));
+  geo.setIndex(indices);
+  // Up-facing normals so blades catch the sun instead of going black.
+  const normals = new Float32Array((positions.length / 3) * 3);
+  for (let i = 0; i < positions.length / 3; i++) {
+    normals[i * 3 + 0] = 0;
+    normals[i * 3 + 1] = 1;
+    normals[i * 3 + 2] = 0;
+  }
+  geo.setAttribute("normal", new BufferAttribute(normals, 3));
+  return geo;
+}
+
 /** Instanced wind-animated grass blades on plains/forest tiles. */
-export function Grass({ data, count = 6000, villageRadius }: Props) {
+export function Grass({ data, count = 16000, villageRadius }: Props) {
   const exclusion = villageRadius ?? data.villageRadius + 2;
   const meshRef = useRef<InstancedMesh>(null!);
   const matRef = useRef<MeshStandardMaterial>(null!);
   const timeUniform = useRef({ value: 0 });
 
   const { geometry, instances } = useMemo(() => {
-    const geo = new PlaneGeometry(0.18, 0.55, 1, 3);
-    geo.translate(0, 0.275, 0);
-    // Point normals straight up so blades catch sun light instead of
-    // rendering near-black when their plane faces sideways.
-    const normals = geo.attributes.normal as BufferAttribute;
-    for (let i = 0; i < normals.count; i++) {
-      normals.setXYZ(i, 0, 1, 0);
-    }
-    normals.needsUpdate = true;
-
+    const geo = makeBladeGeometry();
     const rng = mulberry32(1337);
     const dummy = new Object3D();
     const matrices: Matrix4[] = [];
     const colors: Color[] = [];
-    const baseA = new Color("#6fbf52");
-    const baseB = new Color("#3a7d3a");
+    // Saturated, brighter greens — biome-tinted.
+    const plainsA = new Color("#8ed864");
+    const plainsB = new Color("#4f9e3c");
+    const forestA = new Color("#6cc34a");
+    const forestB = new Color("#2f6b35");
+    const swampA = new Color("#7fb361");
+    const swampB = new Color("#3a6a3a");
     const half = data.worldSize / 2;
     let placed = 0;
     let attempts = 0;
-    while (placed < count && attempts < count * 6) {
+    while (placed < count && attempts < count * 10) {
       attempts++;
       const x = (rng() * 2 - 1) * half * 0.9;
       const z = (rng() * 2 - 1) * half * 0.9;
       if (Math.hypot(x, z) < exclusion) continue;
       const h = data.sampleAt(x, z);
-      if (h < 0.2 || h > 0.65) continue; // plains+forest only
+      // Skip beaches/sand (low), bare mountain rock & snow (high).
+      if (h < 0.22 || h > 0.6) continue;
+      // Skip biomes that should NOT have grass (desert, tundra, mountains, dirt paths).
+      const biome = data.biomeAt(x, z);
+      if (biome === "desert" || biome === "tundra" || biome === "mountains") continue;
       const y = h * data.maxHeight;
       dummy.position.set(x, y, z);
       dummy.rotation.set(0, rng() * Math.PI * 2, 0);
-      const s = 0.7 + rng() * 0.8;
-      dummy.scale.set(s, 0.8 + rng() * 0.7, s);
+      const s = 0.85 + rng() * 0.8;
+      dummy.scale.set(s, 0.9 + rng() * 0.9, s);
       dummy.updateMatrix();
       matrices.push(dummy.matrix.clone());
-      const c = baseA.clone().lerp(baseB, rng() * 0.7);
+      const a = biome === "forest" ? forestA : biome === "swamp" ? swampA : plainsA;
+      const b = biome === "forest" ? forestB : biome === "swamp" ? swampB : plainsB;
+      const c = a.clone().lerp(b, rng() * 0.85);
       colors.push(c);
       placed++;
     }
@@ -102,31 +147,49 @@ export function Grass({ data, count = 6000, villageRadius }: Props) {
       ref={meshRef}
       args={[geometry, undefined, instances.matrices.length]}
       castShadow={false}
-      receiveShadow
+      receiveShadow={false}
       frustumCulled={false}
     >
       <meshStandardMaterial
         ref={matRef}
         vertexColors
-        side={DoubleSide}
-        roughness={0.95}
+        side={FrontSide}
+        roughness={0.85}
         metalness={0}
+        emissive={"#1a3a1a"}
+        emissiveIntensity={0.35}
         onBeforeCompile={(shader) => {
           shader.uniforms.uTime = timeUniform.current;
           shader.vertexShader = shader.vertexShader
             .replace(
               "#include <common>",
-              `#include <common>\nuniform float uTime;`,
+              `#include <common>\nuniform float uTime;\nvarying float vBladeHeight;`,
             )
             .replace(
               "#include <begin_vertex>",
               `vec3 transformed = vec3( position );
-               float bendStrength = pow(max(position.y,0.0)/0.55, 1.5);
+               float heightRatio = clamp(position.y / 0.65, 0.0, 1.0);
+               vBladeHeight = heightRatio;
+               float bendStrength = pow(heightRatio, 1.6);
                vec4 wp = modelMatrix * instanceMatrix * vec4(transformed,1.0);
                float w = sin(uTime*1.6 + wp.x*0.35 + wp.z*0.45) * 0.18
                        + sin(uTime*2.3 + wp.x*0.7) * 0.07;
                transformed.x += w * bendStrength;
-               transformed.z += w * 0.6 * bendStrength;`,
+               transformed.z += w * 0.6 * bendStrength;
+               // Slight droop so tip arcs over rather than shearing flat.
+               transformed.y -= bendStrength * 0.06;`,
+            );
+          // Fragment: lighten the tip so blades read as real grass instead
+          // of flat dark rectangles.
+          shader.fragmentShader = shader.fragmentShader
+            .replace(
+              "#include <common>",
+              `#include <common>\nvarying float vBladeHeight;`,
+            )
+            .replace(
+              "#include <color_fragment>",
+              `#include <color_fragment>
+               diffuseColor.rgb = mix(diffuseColor.rgb * 0.55, diffuseColor.rgb * 1.35, vBladeHeight);`,
             );
         }}
       />
