@@ -7,15 +7,11 @@ import {
   DoubleSide,
 } from "three";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
+import { biomeColor } from "@/game/biomes";
 
-function colorFor(h: number, out: Color) {
+function colorFor(data: TerrainData, x: number, z: number, h: number, out: Color) {
   // h is normalized 0..1
-  if (h < 0.18) out.set("#e8d39a"); // beach / sand
-  else if (h < 0.42) out.set("#5fa84a"); // plains
-  else if (h < 0.7) out.set("#2f6b35"); // forest hills
-  else if (h < 0.85) out.set("#7a7a7a"); // rock
-  else out.set("#e8eef2"); // snow peaks
-  return out;
+  return biomeColor(data.biomeAt(x, z), h, out);
 }
 
 export function Terrain({ data }: { data: TerrainData }) {
@@ -31,10 +27,12 @@ export function Terrain({ data }: { data: TerrainData }) {
       for (let i = 0; i < size; i++) {
         const idx = j * size + i;
         const h = heights[idx];
-        positions[idx * 3 + 0] = (i / segments) * worldSize - half;
+        const x = (i / segments) * worldSize - half;
+        const z = (j / segments) * worldSize - half;
+        positions[idx * 3 + 0] = x;
         positions[idx * 3 + 1] = h * maxHeight;
-        positions[idx * 3 + 2] = (j / segments) * worldSize - half;
-        colorFor(h, c);
+        positions[idx * 3 + 2] = z;
+        colorFor(data, x, z, h, c);
         colors[idx * 3 + 0] = c.r;
         colors[idx * 3 + 1] = c.g;
         colors[idx * 3 + 2] = c.b;
