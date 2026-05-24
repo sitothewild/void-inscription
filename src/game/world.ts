@@ -1,5 +1,6 @@
-import { ISLAND_RADIUS, VILLAGE_RADIUS } from "./constants";
 import { mulberry32 } from "./rng";
+import { isValidResourceSpot, type Plateau } from "./terrain";
+import { ISLAND_RADIUS, VILLAGE_RADIUS } from "./constants";
 
 export type Resource = {
   id: string;
@@ -9,37 +10,26 @@ export type Resource = {
   hp: number;
 };
 
-export function generateWorld(seed: number) {
+export function generateWorld(seed: number, plateaus: Plateau[] = []) {
   const rng = mulberry32(seed);
   const resources: Resource[] = [];
-  const minClear = VILLAGE_RADIUS + 1.5;
-  // Trees
-  for (let i = 0; i < 90; i++) {
-    const angle = rng() * Math.PI * 2;
-    const r = Math.sqrt(rng()) * (ISLAND_RADIUS - 2);
-    const x = Math.cos(angle) * r;
-    const z = Math.sin(angle) * r;
-    if (Math.hypot(x, z) < minClear) continue;
-    resources.push({ id: `t${i}`, kind: "tree", x, z, hp: 3 });
-  }
-  // Rocks
-  for (let i = 0; i < 35; i++) {
-    const angle = rng() * Math.PI * 2;
-    const r = Math.sqrt(rng()) * (ISLAND_RADIUS - 2);
-    const x = Math.cos(angle) * r;
-    const z = Math.sin(angle) * r;
-    if (Math.hypot(x, z) < minClear) continue;
-    resources.push({ id: `r${i}`, kind: "rock", x, z, hp: 4 });
-  }
-  // Herb bushes (fewer, only outside village)
-  for (let i = 0; i < 20; i++) {
-    const angle = rng() * Math.PI * 2;
-    const r = Math.sqrt(rng()) * (ISLAND_RADIUS - 2);
-    const x = Math.cos(angle) * r;
-    const z = Math.sin(angle) * r;
-    if (Math.hypot(x, z) < minClear) continue;
-    resources.push({ id: `h${i}`, kind: "herb", x, z, hp: 1 });
-  }
+  const spawn = (kind: Resource["kind"], count: number, hp: number, prefix: string) => {
+    let placed = 0;
+    let attempts = 0;
+    while (placed < count && attempts < count * 12) {
+      attempts++;
+      const angle = rng() * Math.PI * 2;
+      const r = Math.sqrt(rng()) * (ISLAND_RADIUS - 2);
+      const x = Math.cos(angle) * r;
+      const z = Math.sin(angle) * r;
+      if (!isValidResourceSpot(x, z, plateaus)) continue;
+      resources.push({ id: `${prefix}${placed}`, kind, x, z, hp });
+      placed++;
+    }
+  };
+  spawn("tree", 180, 3, "t");
+  spawn("rock", 70, 4, "r");
+  spawn("herb", 40, 1, "h");
   return resources;
 }
 
