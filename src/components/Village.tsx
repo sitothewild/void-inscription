@@ -285,7 +285,8 @@ export function Village({ data }: { data: TerrainData }) {
         <FenceRail key={i} position={r.pos} rotation={r.rot} length={r.length} y={r.y} />
       ))}
       <Gate data={data} radius={fence.radius} />
-      <Campfire position={[3, baseY, 2]} />
+      {/* Campfire on the back side of the pylon, off the gate path */}
+      <Campfire position={[0, baseY, -3.5]} />
     </group>
   );
 }
