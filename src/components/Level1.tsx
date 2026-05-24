@@ -16,7 +16,9 @@ import { Ocean } from "./Ocean";
 import { SkyEnvironment } from "./SkyEnvironment";
 import { PirateShip } from "./PirateShip";
 import { FlyingCity } from "./FlyingCity";
-import { useProceduralTerrain } from "@/hooks/useProceduralTerrain";
+import { Lake } from "./Lake";
+import { Waterfall } from "./Waterfall";
+import { useImageTerrain } from "@/hooks/useImageTerrain";
 import { usePortalTrigger } from "@/hooks/usePortalTrigger";
 
 type Props = {
@@ -25,15 +27,21 @@ type Props = {
 };
 
 export function Level1({ spawn, onEnterPortal }: Props) {
-  // Bigger world: 200m across, more detail, taller peaks
-  // villageRadius extends ~8m past the fence (r=15) so the approach to
-  // every gate stays flat enough to walk/ride out comfortably.
-  const terrain = useProceduralTerrain(42, 200, 200, 18, 23);
+  // The painted 2 km × 2 km island is now the main world. Snow peaks,
+  // forest, meadows, swamps, hot plains, lakes and waterfalls all come
+  // from /maps/island_source.jpg.
+  const terrain = useImageTerrain({
+    url: "/maps/island_source.jpg",
+    worldSize: 2000,
+    segments: 400,
+    maxHeight: 80,
+    seed: 11,
+  });
   const playerRef = useRef<RapierRigidBody | null>(null);
 
   const portals = useMemo(() => {
-    // Scatter portals across the island at varying distances/angles.
-    // Deterministic from seed; skip the village center and the very edge.
+    // Scatter portals across the 2 km island, well clear of the village
+    // pad and the shore.
     const out: Array<{ id: string; position: [number, number, number] }> = [];
     let a = 0x9e3779b1;
     const rand = () => {
@@ -44,9 +52,9 @@ export function Level1({ spawn, onEnterPortal }: Props) {
       t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
-    const count = 10;
-    const minR = 25;
-    const maxR = 88;
+    const count = 12;
+    const minR = 80;
+    const maxR = terrain.worldSize / 2 - 80;
     for (let i = 0; i < count; i++) {
       const ang = rand() * Math.PI * 2;
       const r = minR + rand() * (maxR - minR);
@@ -54,7 +62,7 @@ export function Level1({ spawn, onEnterPortal }: Props) {
       const z = Math.cos(ang) * r;
       const y = terrain.sampleWorldY(x, z);
       // skip if underwater
-      if (y < 0.5) continue;
+      if (y < 3) continue;
       out.push({ id: `p${i}`, position: [x, y, z] });
     }
     return out;
@@ -62,14 +70,17 @@ export function Level1({ spawn, onEnterPortal }: Props) {
 
   usePortalTrigger(playerRef, portals, 3, onEnterPortal);
 
+  // Lake water sits slightly above the carved basin so waves cover the rim.
+  const lakeY = 2.8;
+
   return (
     <>
       {/* Dynamic day/night cycle drives sky, sun, moon, ambient, and fog. */}
-      <SkyEnvironment fogNear={60} fogFar={140} />
+      <SkyEnvironment fogNear={120} fogFar={520} />
 
       <Terrain data={terrain} />
-      <Resources data={terrain} />
-      <Grass data={terrain} count={18000} />
+      <Resources data={terrain} densityMultiplier={6} />
+      <Grass data={terrain} count={28000} allowDesert />
       <Village data={terrain} />
       <Suspense fallback={null}>
         <Vendors data={terrain} />
@@ -77,24 +88,35 @@ export function Level1({ spawn, onEnterPortal }: Props) {
       </Suspense>
       <WindParticles />
 
-      {/* Sand shoreline ring sits low so the water can lap over it. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.4, 0]} receiveShadow>
-        <ringGeometry args={[terrain.worldSize / 2 - 12, terrain.worldSize / 2 + 4, 96]} />
-        <meshStandardMaterial color={"#e8d39a"} roughness={1} />
-      </mesh>
-      {/* Animated ocean — sits just above the sand so waves visibly cover the beach. */}
-      <Ocean size={900} y={0.15} shoreRadius={terrain.worldSize / 2 - 6} />
+      {/* Surrounding ocean — large enough to encircle the 2 km island. */}
+      <Ocean size={3200} y={0.4} shoreRadius={terrain.worldSize / 2 - 30} />
+
+      {/* Painted lakes become real water bodies. */}
+      {terrain.lakes.map((l, i) => (
+        <Lake key={i} position={[l.x, lakeY, l.z]} radius={l.r} />
+      ))}
+
+      {/* Waterfalls auto-spawned where rivers cascade off the snowline. */}
+      {terrain.waterfalls.map((w, i) => (
+        <Waterfall
+          key={i}
+          position={[w.x, w.y, w.z]}
+          height={w.height}
+          rotationY={w.dir}
+          width={6}
+        />
+      ))}
 
       {/* Pirate ship bobbing on the open ocean for a touch of life beyond the island. */}
       <Suspense fallback={null}>
-        <PirateShip position={[-60, 0.4, -terrain.worldSize / 2 - 30]} rotation={Math.PI * 0.15} scale={7} />
-        <PirateShip position={[80, 0.4, -terrain.worldSize / 2 - 55]} rotation={-Math.PI * 0.4} scale={5} url="/models/pirate/Small_Ship.glb" />
+        <PirateShip position={[-260, 0.4, -terrain.worldSize / 2 - 80]} rotation={Math.PI * 0.15} scale={9} />
+        <PirateShip position={[320, 0.4, -terrain.worldSize / 2 - 140]} rotation={-Math.PI * 0.4} scale={6} url="/models/pirate/Small_Ship.glb" />
       </Suspense>
 
       {/* Floating sky city — pure visual, drifts slowly above the island. */}
       <Suspense fallback={null}>
-        <FlyingCity position={[40, 70, -50]} scale={6} seed={1337} />
-        <FlyingCity position={[-90, 85, 60]} scale={4} seed={4242} />
+        <FlyingCity position={[180, 140, -220]} scale={9} seed={1337} />
+        <FlyingCity position={[-260, 170, 180]} scale={7} seed={4242} />
       </Suspense>
 
       {/* Village Anchor — spinning cube + particles */}

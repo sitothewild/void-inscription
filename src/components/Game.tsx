@@ -15,7 +15,7 @@ import { InventoryWindow } from "./InventoryWindow";
 
 export function Game() {
   const [currentLevel, setCurrentLevel] = useState<1 | 2 | 3>(1);
-  const [playerSpawnPos, setPlayerSpawnPos] = useState<[number, number, number]>([0, 8, 0]);
+  const [playerSpawnPos, setPlayerSpawnPos] = useState<[number, number, number]>([0, 90, 0]);
 
   const keyMap = useMemo(
     () => [
@@ -40,7 +40,7 @@ export function Game() {
   };
   const enterLevel1 = () => {
     setCurrentLevel(1);
-    setPlayerSpawnPos([0, 8, 0]);
+    setPlayerSpawnPos([0, 90, 0]);
   };
 
   return (
