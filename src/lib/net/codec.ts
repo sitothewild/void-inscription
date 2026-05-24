@@ -1,5 +1,6 @@
-import type { Enemy } from "@/game/store";
+import type { Enemy, Gate, Inventory } from "@/game/store";
 import type { Resource } from "@/game/world";
+import type { ShamanItem, WeaponKind } from "@/game/weapons";
 
 export type RemotePlayerState = {
   x: number;
@@ -11,7 +12,7 @@ export type RemotePlayerState = {
 };
 
 export type Snapshot = {
-  t: number; // server time
+  t: number;
   phase: "day" | "night";
   phaseTime: number;
   day: number;
@@ -19,14 +20,9 @@ export type Snapshot = {
   status: "playing" | "won" | "lost";
   enemies: Enemy[];
   resources: Resource[];
+  gates: Gate[];
   players: Record<string, RemotePlayerState>;
-  inventory: {
-    wood: number;
-    stone: number;
-    axe: boolean;
-    sword: boolean;
-    palisade: number;
-  };
+  inventory: Inventory;
   seed: number;
 };
 
@@ -40,8 +36,9 @@ export type InputMsg = {
 };
 
 export type ActionMsg =
-  | { type: "attack"; x: number; z: number; facing: number; sword: boolean }
-  | { type: "craft"; item: "axe" | "sword" | "palisade" }
+  | { type: "attack"; x: number; z: number; facing: number; damageMul: number; range: number }
+  | { type: "buy-weapon"; kind: WeaponKind; tier: 1 | 2 | 3 }
+  | { type: "buy-shaman"; item: ShamanItem }
   | { type: "reset" };
 
 export const PLAYER_COLORS = [
