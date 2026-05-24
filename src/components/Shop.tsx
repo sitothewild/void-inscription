@@ -22,17 +22,6 @@ export function Shop() {
 
   // Toggle shop with E / action edge — only when a vendor is in range.
   useEffect(() => {
-    return onEdge("action", () => {
-      setOpenVendor((cur) => {
-        if (cur) return null;
-        const v = inventory.get();
-        void v;
-        return null; // updated by effect below using latest nearby
-      });
-    });
-  }, []);
-  // Use a ref-like effect to honour latest nearby vendor.
-  useEffect(() => {
     const off = onEdge("action", () => {
       if (openVendor) {
         setOpenVendor(null);
