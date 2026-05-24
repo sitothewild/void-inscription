@@ -15,6 +15,7 @@ import { mobileAxis, onEdge, playerPos, playerState } from "@/game/inputStore";
 import { setPlayerChunkPosition } from "@/game/chunkManager";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
 import { health } from "@/game/health";
+import { admin } from "@/game/admin";
 
 export type Controls = "forward" | "back" | "left" | "right" | "jump" | "sprint";
 
@@ -229,9 +230,10 @@ export function Player({ spawn, terrain, camera, onRef }: Props) {
     movingRef.current = len > 0;
     playerState.moving = len > 0;
     if (len > 0) {
-      const mag = Math.min(1, len);
-      dx = (dx / len) * moveSpeed * mag;
-      dz = (dz / len) * moveSpeed * mag;
+      // Always sprint — partial joystick still moves at full run speed so
+      // the character never falls back to a walk animation.
+      dx = (dx / len) * moveSpeed;
+      dz = (dz / len) * moveSpeed;
       speedRef.current = Math.hypot(dx, dz);
     } else {
       speedRef.current = 0;
@@ -252,6 +254,36 @@ export function Player({ spawn, terrain, camera, onRef }: Props) {
     const collider = colliderRef.current;
     const controller = controllerRef.current;
     const dt = Math.min(1 / 30, delta);
+
+    // ---- Admin flight: bypass gravity & character controller. ----
+    const adm = admin.get();
+    if (adm.flying) {
+      const ctrl = (typeof window !== "undefined") && (
+        // Read live modifier state via a tiny window-level cache below.
+        (window as unknown as { __mods?: { ctrl: boolean; alt: boolean } }).__mods?.ctrl
+      );
+      const alt = (typeof window !== "undefined") && (
+        (window as unknown as { __mods?: { ctrl: boolean; alt: boolean } }).__mods?.alt
+      );
+      const fs = adm.flySpeed;
+      // Normalize horizontal direction at fly speed (overrides walk speed).
+      let fx = 0;
+      let fz = 0;
+      if (len > 0) {
+        fx = (dx / moveSpeed) * fs;
+        fz = (dz / moveSpeed) * fs;
+      }
+      let fy = 0;
+      if (ctrl) fy += fs;
+      if (alt) fy -= fs;
+      verticalVelocity.current = 0;
+      const next = b.translation();
+      b.setNextKinematicTranslation({
+        x: next.x + fx * dt,
+        y: next.y + fy * dt,
+        z: next.z + fz * dt,
+      });
+    } else
     if (collider && controller) {
       verticalVelocity.current += -20 * dt;
       const desiredY = verticalVelocity.current * dt;
@@ -272,7 +304,7 @@ export function Player({ spawn, terrain, camera, onRef }: Props) {
     } else {
       b.setLinvel({ x: dx, y: vel.y, z: dz }, true);
     }
-    if (jump && grounded) {
+    if (jump && grounded && !adm.flying) {
       verticalVelocity.current = JUMP_IMPULSE;
       queuedAction.current = "jump";
     }
