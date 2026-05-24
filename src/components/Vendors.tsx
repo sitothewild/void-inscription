@@ -1,7 +1,10 @@
-import { Suspense, useMemo } from "react";
+import { Suspense, useEffect, useMemo } from "react";
+import { useFrame } from "@react-three/fiber";
 import { CharacterModel } from "./CharacterModel";
 import { computeHutSlots } from "@/game/villageLayout";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
+import { playerPos } from "@/game/inputStore";
+import { vendorProximity } from "@/game/inventory";
 
 type Vendor = {
   url: string;
@@ -53,6 +56,24 @@ export function Vendors({ data }: { data: TerrainData }) {
     });
   }, [data]);
 
+  // Per-frame: find the nearest vendor within range and publish it for the UI.
+  const INTERACT = 3.5;
+  useFrame(() => {
+    let best: Vendor | null = null;
+    let bestD = INTERACT * INTERACT;
+    for (const v of vendors) {
+      const dx = v.pos[0] - playerPos.x;
+      const dz = v.pos[2] - playerPos.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < bestD) {
+        bestD = d2;
+        best = v;
+      }
+    }
+    vendorProximity.set(best ? { label: best.label, pos: best.pos } : null);
+  });
+  useEffect(() => () => vendorProximity.set(null), []);
+
   return (
     <group>
       {vendors.map((v) => (
@@ -60,6 +81,11 @@ export function Vendors({ data }: { data: TerrainData }) {
           <Suspense fallback={null}>
             <CharacterModel url={v.url} scale={1} animation="idle" />
           </Suspense>
+          {/* Soft golden glow ring so vendors stand out at a glance. */}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+            <ringGeometry args={[0.9, 1.15, 32]} />
+            <meshBasicMaterial color={"#ffd86b"} transparent opacity={0.45} depthWrite={false} toneMapped={false} />
+          </mesh>
         </group>
       ))}
     </group>

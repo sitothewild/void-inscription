@@ -11,7 +11,7 @@ import {
 import { Group, Mesh, Plane, Raycaster, Vector2, Vector3 } from "three";
 import { CharacterModel, type CharAction, type CharState } from "./CharacterModel";
 import { fireArrow } from "./Projectiles";
-import { mobileAxis, onEdge, playerPos, playerState, runState } from "@/game/inputStore";
+import { mobileAxis, onEdge, playerPos, playerState } from "@/game/inputStore";
 import { setPlayerChunkPosition } from "@/game/chunkManager";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
 
@@ -25,7 +25,6 @@ type Props = {
   onRef?: (body: RapierRigidBody | null) => void;
 };
 
-const WALK_SPEED = 4.5;
 const RUN_SPEED = 9;
 const JUMP_IMPULSE = 12;
 
@@ -209,7 +208,7 @@ export function Player({ spawn, terrain, camera, onRef }: Props) {
       b.setLinvel({ x: 0, y: 0, z: 0 }, true);
       verticalVelocity.current = 0;
     }
-    const { forward, back, left, right, jump, sprint } = get();
+    const { forward, back, left, right, jump } = get();
     const vel = b.linvel();
 
     let dx = 0;
@@ -222,8 +221,7 @@ export function Player({ spawn, terrain, camera, onRef }: Props) {
     dx += mobileAxis.x;
     dz += mobileAxis.y;
     const len = Math.hypot(dx, dz);
-    const sprinting = sprint || runState.toggled;
-    const moveSpeed = sprinting ? RUN_SPEED : WALK_SPEED;
+    const moveSpeed = RUN_SPEED;
     movingRef.current = len > 0;
     playerState.moving = len > 0;
     if (len > 0) {
@@ -238,8 +236,7 @@ export function Player({ spawn, terrain, camera, onRef }: Props) {
     if (aiming) {
       stateRef.current = speedRef.current < 0.1 ? "aim" : "run_aim";
     } else {
-      stateRef.current =
-        speedRef.current < 0.1 ? "idle" : sprinting ? "run" : "walk";
+      stateRef.current = speedRef.current < 0.1 ? "idle" : "run";
     }
 
     // Grounded check: cast ray downward
