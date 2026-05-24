@@ -1,7 +1,7 @@
 import { useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Sky } from "@react-three/drei";
-import { Color, DirectionalLight, Fog, Mesh, Vector3 } from "three";
+import { Color, DirectionalLight, Fog, Mesh, ShaderMaterial, Vector3 } from "three";
 import { computeSkyEnv, tickTime, time } from "@/game/time";
 
 type Props = {
@@ -23,7 +23,7 @@ export function SkyEnvironment({ fogNear = 60, fogFar = 140 }: Props) {
   const moonMeshRef = useRef<Mesh>(null);
   const moonGlowRef = useRef<Mesh>(null);
   // Drei's <Sky> exposes itself as a mesh; we mutate its material uniforms each frame.
-  const skyRef = useRef<{ material: { uniforms: { sunPosition: { value: Vector3 } } } }>(null);
+  const skyRef = useRef<Mesh>(null);
   // Reusable color buffers (avoid GC each frame).
   const tmpColor = useMemo(() => new Color(), []);
   const sunVec = useMemo(() => new Vector3(), []);
@@ -54,9 +54,10 @@ export function SkyEnvironment({ fogNear = 60, fogFar = 140 }: Props) {
       ambientRef.current.color.set(env.ambientColor);
     }
     // Sky uniforms.
-    if (skyRef.current?.material?.uniforms?.sunPosition) {
+    const skyMat = skyRef.current?.material as ShaderMaterial | undefined;
+    if (skyMat?.uniforms?.sunPosition) {
       sunVec.set(env.sunDir[0], env.sunDir[1], env.sunDir[2]).multiplyScalar(450000);
-      skyRef.current.material.uniforms.sunPosition.value.copy(sunVec);
+      (skyMat.uniforms.sunPosition.value as Vector3).copy(sunVec);
     }
     // Moon mesh — billboarded above horizon when the moon side is up.
     if (moonMeshRef.current) {
@@ -90,7 +91,7 @@ export function SkyEnvironment({ fogNear = 60, fogFar = 140 }: Props) {
     <group>
       {/* Daylight sky. We dim the sun via the directional light; the sky
           itself uses default scattering. */}
-      <Sky ref={skyRef} distance={450000} sunPosition={[40, 50, 20]} turbidity={4} rayleigh={1.2} />
+      <Sky ref={skyRef as unknown as React.Ref<typeof Sky>} distance={450000} sunPosition={[40, 50, 20]} turbidity={4} rayleigh={1.2} />
 
       <ambientLight
         ref={(o) => {
