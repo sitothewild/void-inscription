@@ -1,5 +1,6 @@
 import { Suspense, useMemo } from "react";
 import { CharacterModel } from "./CharacterModel";
+import { computeHutSlots } from "@/game/villageLayout";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
 
 type Vendor = {
@@ -9,35 +10,45 @@ type Vendor = {
   rotY: number;
 };
 
-/** Static NPC vendors clustered near the village campfire / pylon. */
+/**
+ * Static NPC vendors. Each vendor is anchored next to a specific hut (their
+ * "shop") rather than placed on an arbitrary ring, so the village reads as
+ * intentional: blacksmith at the smithy, trader at the trading post, etc.
+ */
 export function Vendors({ data }: { data: TerrainData }) {
-  const baseY = data.sampleWorldY(0, 0);
-  // Place vendors on a comfortable inner ring that scales with the village
-  // pad. They sit between the central pylon and the hut ring (~r=10).
-  const ringR = Math.max(4, data.villageRadius * 0.45);
-
   const vendors = useMemo<Vendor[]>(() => {
-    // Keep the +Z corridor (in front of the gate) clear: vendors only occupy
-    // the back/side arcs around the campfire.
-    const ring: Array<{ url: string; label: string; angle: number; radius: number }> = [
-      // Angles in radians; π/2 (≈1.57) is the gate, so we skip ~[1.1, 2.0].
-      { url: "/models/characters/men/Farmer.glb", label: "Trader", angle: 0.4, radius: ringR },
-      { url: "/models/characters/men/Worker.glb", label: "Blacksmith", angle: 2.5, radius: ringR },
-      { url: "/models/characters/men/King.glb", label: "Captain", angle: Math.PI + 0.3, radius: ringR * 0.7 },
-      { url: "/models/characters/men/Hoodie_Character.glb", label: "Scout", angle: 5.1, radius: ringR },
+    const slots = computeHutSlots();
+    // Map vendors to specific hut indices. Each vendor stands ~1.6m in front
+    // of "their" hut's door, offset slightly sideways so they don't block
+    // the entrance, and faces outward (away from the hut into the plaza).
+    const assignments: Array<{ url: string; label: string; hutIndex: number; sideOffset: number }> = [
+      { url: "/models/characters/men/Worker.glb",           label: "Blacksmith", hutIndex: 0, sideOffset: 0.6 },
+      { url: "/models/characters/men/Farmer.glb",           label: "Trader",     hutIndex: 1, sideOffset: -0.6 },
+      { url: "/models/characters/men/King.glb",             label: "Captain",    hutIndex: 3, sideOffset: 0.5 },
+      { url: "/models/characters/men/Hoodie_Character.glb", label: "Scout",      hutIndex: 5, sideOffset: -0.5 },
     ];
-    return ring.map((v) => {
-      const x = Math.cos(v.angle) * v.radius;
-      const z = Math.sin(v.angle) * v.radius;
-      // Face the central pylon (origin)
-      return {
-        url: v.url,
-        label: v.label,
-        pos: [x, data.sampleWorldY(x, z), z],
+    return assignments.flatMap((a) => {
+      const hut = slots[a.hutIndex];
+      if (!hut) return [];
+      // "Outward" radial unit vector from village center → hut.
+      const ur = Math.cos(hut.angle);
+      const vr = Math.sin(hut.angle);
+      // Tangent (perpendicular to radial), for the side offset along the hut wall.
+      const ut = -vr;
+      const vt = ur;
+      // Stand 1.6m further out from the hut center (past the door plane).
+      const standOut = 1.6;
+      const x = hut.x + ur * standOut + ut * a.sideOffset;
+      const z = hut.z + vr * standOut + vt * a.sideOffset;
+      return [{
+        url: a.url,
+        label: a.label,
+        pos: [x, data.sampleWorldY(x, z), z] as [number, number, number],
+        // Face inward toward the plaza / pylon so the player walking up sees their face.
         rotY: Math.atan2(-x, -z),
-      };
+      }];
     });
-  }, [data, baseY, ringR]);
+  }, [data]);
 
   return (
     <group>
