@@ -230,6 +230,10 @@ function Gate({
         </mesh>
         <pointLight color={"#ffd27a"} intensity={3} distance={5} position={[0, 1, 0]} />
       </group>
+      {/* Gate health bar — billboarded above the arch. */}
+      <group position={[cx, y + 3.4, cz]}>
+        <WorldHealthBar id={hpId} yOffset={0} width={2.4} color={broken ? "#ff5555" : "#c89c5a"} label="Gate" />
+      </group>
     </group>
   );
 }
