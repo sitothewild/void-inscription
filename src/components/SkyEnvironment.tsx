@@ -91,7 +91,8 @@ export function SkyEnvironment({ fogNear = 60, fogFar = 140 }: Props) {
     <group>
       {/* Daylight sky. We dim the sun via the directional light; the sky
           itself uses default scattering. */}
-      <Sky ref={skyRef as unknown as React.Ref<typeof Sky>} distance={450000} sunPosition={[40, 50, 20]} turbidity={4} rayleigh={1.2} />
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      <Sky ref={skyRef as any} distance={450000} sunPosition={[40, 50, 20]} turbidity={4} rayleigh={1.2} />
 
       <ambientLight
         ref={(o) => {
