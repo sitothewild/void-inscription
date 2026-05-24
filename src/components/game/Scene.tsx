@@ -15,6 +15,9 @@ import { Village } from "./Village";
 import { Vendors } from "./Vendor";
 import { Herb } from "./Herb";
 import { Plateaus } from "./Plateaus";
+import { WindField } from "./WindField";
+import { WindParticles } from "./WindParticles";
+import { SkyDome } from "./SkyDome";
 
 function World() {
   const resources = useGame((s) => s.resources);
@@ -46,14 +49,17 @@ export function Scene() {
     <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }}>
       <Suspense fallback={null}>
         <IsoCamera />
+        <SkyDome />
         <Lighting />
         <Ground />
         <Seed />
       <Village />
       <Plateaus />
+      <WindField />
       <Vendors />
         <Hero />
         <World />
+        <WindParticles />
         <GameLoop />
       </Suspense>
     </Canvas>
