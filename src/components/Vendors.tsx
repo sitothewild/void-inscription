@@ -5,6 +5,7 @@ import { computeHutSlots } from "@/game/villageLayout";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
 import { playerPos } from "@/game/inputStore";
 import { vendorProximity } from "@/game/inventory";
+import { Sign } from "./Sign";
 
 type Vendor = {
   url: string;
@@ -77,15 +78,23 @@ export function Vendors({ data }: { data: TerrainData }) {
   return (
     <group>
       {vendors.map((v) => (
-        <group key={v.label} position={v.pos} rotation={[0, v.rotY, 0]}>
-          <Suspense fallback={null}>
-            <CharacterModel url={v.url} scale={1} animation="idle" />
-          </Suspense>
-          {/* Soft golden glow ring so vendors stand out at a glance. */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
-            <ringGeometry args={[0.9, 1.15, 32]} />
-            <meshBasicMaterial color={"#ffd86b"} transparent opacity={0.45} depthWrite={false} toneMapped={false} />
-          </mesh>
+        <group key={v.label}>
+          <group position={v.pos} rotation={[0, v.rotY, 0]}>
+            <Suspense fallback={null}>
+              <CharacterModel url={v.url} scale={1} animation="idle" />
+            </Suspense>
+            {/* Soft golden glow ring so vendors stand out at a glance. */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+              <ringGeometry args={[0.9, 1.15, 32]} />
+              <meshBasicMaterial color={"#ffd86b"} transparent opacity={0.45} depthWrite={false} toneMapped={false} />
+            </mesh>
+          </group>
+          {/* Shop sign next to each vendor, slightly offset to the right. */}
+          <Sign
+            position={[v.pos[0] + Math.cos(v.rotY) * 0.9, v.pos[1], v.pos[2] - Math.sin(v.rotY) * 0.9]}
+            rotationY={v.rotY}
+            label={v.label}
+          />
         </group>
       ))}
     </group>

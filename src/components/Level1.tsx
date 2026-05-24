@@ -14,6 +14,7 @@ import { Projectiles } from "./Projectiles";
 import { InteractionSystem } from "./InteractionSystem";
 import { Ocean } from "./Ocean";
 import { SkyEnvironment } from "./SkyEnvironment";
+import { PirateShip } from "./PirateShip";
 import { useProceduralTerrain } from "@/hooks/useProceduralTerrain";
 import { usePortalTrigger } from "@/hooks/usePortalTrigger";
 
@@ -82,6 +83,12 @@ export function Level1({ spawn, onEnterPortal }: Props) {
       </mesh>
       {/* Animated ocean — sits just above the sand so waves visibly cover the beach. */}
       <Ocean size={900} y={0.15} shoreRadius={terrain.worldSize / 2 - 6} />
+
+      {/* Pirate ship bobbing on the open ocean for a touch of life beyond the island. */}
+      <Suspense fallback={null}>
+        <PirateShip position={[-60, 0.4, -terrain.worldSize / 2 - 30]} rotation={Math.PI * 0.15} scale={7} />
+        <PirateShip position={[80, 0.4, -terrain.worldSize / 2 - 55]} rotation={-Math.PI * 0.4} scale={5} url="/models/pirate/Small_Ship.glb" />
+      </Suspense>
 
       {/* Village Anchor — spinning cube + particles */}
       <Pylon position={[0, terrain.sampleWorldY(0, 0) + 3, 0]} color={"#ffb060"} />
