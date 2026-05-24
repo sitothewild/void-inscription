@@ -14,6 +14,7 @@ import { fireArrow } from "./Projectiles";
 import { mobileAxis, onEdge, playerPos, playerState } from "@/game/inputStore";
 import { setPlayerChunkPosition } from "@/game/chunkManager";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
+import { health } from "@/game/health";
 
 export type Controls = "forward" | "back" | "left" | "right" | "jump" | "sprint";
 
@@ -207,6 +208,9 @@ export function Player({ spawn, terrain, camera, onRef }: Props) {
       b.setTranslation({ x: spawn[0], y: spawn[1] + 4, z: spawn[2] }, true);
       b.setLinvel({ x: 0, y: 0, z: 0 }, true);
       verticalVelocity.current = 0;
+      // Falling off the world hurts a little, then full-heals if it killed us.
+      health.damage("player", 20);
+      if ((health.get().player?.hp ?? 0) <= 0) health.reset("player");
     }
     const { forward, back, left, right, jump } = get();
     const vel = b.linvel();

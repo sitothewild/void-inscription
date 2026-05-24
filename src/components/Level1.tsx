@@ -1,5 +1,4 @@
 import { Suspense, useMemo, useRef } from "react";
-import { Sky } from "@react-three/drei";
 import { type RapierRigidBody } from "@react-three/rapier";
 import { Terrain } from "./Terrain";
 import { Portal } from "./Portal";
@@ -14,6 +13,7 @@ import { Pylon } from "./Pylon";
 import { Projectiles } from "./Projectiles";
 import { InteractionSystem } from "./InteractionSystem";
 import { Ocean } from "./Ocean";
+import { SkyEnvironment } from "./SkyEnvironment";
 import { useProceduralTerrain } from "@/hooks/useProceduralTerrain";
 import { usePortalTrigger } from "@/hooks/usePortalTrigger";
 
@@ -62,22 +62,8 @@ export function Level1({ spawn, onEnterPortal }: Props) {
 
   return (
     <>
-      <color attach="background" args={["#87b8e0"]} />
-      <fog attach="fog" args={["#9fc2e6", 60, 140]} />
-      <Sky distance={450000} sunPosition={[40, 50, 20]} turbidity={4} rayleigh={1.2} />
-
-      <ambientLight intensity={0.4} />
-      <directionalLight
-        position={[30, 40, 20]}
-        intensity={1.2}
-        castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-        shadow-camera-left={-60}
-        shadow-camera-right={60}
-        shadow-camera-top={60}
-        shadow-camera-bottom={-60}
-      />
+      {/* Dynamic day/night cycle drives sky, sun, moon, ambient, and fog. */}
+      <SkyEnvironment fogNear={60} fogFar={140} />
 
       <Terrain data={terrain} />
       <Resources data={terrain} />

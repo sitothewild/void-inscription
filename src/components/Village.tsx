@@ -5,6 +5,9 @@ import { CuboidCollider, RigidBody, type RapierRigidBody } from "@react-three/ra
 import { onEdge, playerPos } from "@/game/inputStore";
 import { computeHutSlots, VILLAGE_GATE_ANGLES } from "@/game/villageLayout";
 import type { TerrainData } from "@/hooks/useProceduralTerrain";
+import { health, useHealth, type HealthId } from "@/game/health";
+import { hitTargets } from "@/game/hitTargets";
+import { WorldHealthBar } from "./WorldHealthBar";
 
 function Hut({ position, rotation }: { position: [number, number, number]; rotation: number }) {
   return (
@@ -85,10 +88,12 @@ function Gate({
   data,
   radius,
   angle,
+  index,
 }: {
   data: TerrainData;
   radius: number;
   angle: number;
+  index: number;
 }) {
   // Gate center on the fence circle.
   const cx = Math.cos(angle) * radius;
@@ -117,6 +122,16 @@ function Gate({
   const promptRef = useRef<Group>(null);
   const openProgress = useRef(0);
   const INTERACT_R = 5;
+  const hpId: HealthId = `gate:${index}`;
+  const hp = useHealth(hpId);
+  const broken = hp ? hp.hp <= 0 : false;
+
+  // Register gate as a damageable target + ensure its health entry exists.
+  useEffect(() => {
+    health.ensure(hpId, 200);
+    hitTargets.register({ id: hpId, x: cx, y: y + 1.2, z: cz, radius: 2.6 });
+    return () => hitTargets.unregister(hpId);
+  }, [cx, cz, y, hpId]);
 
   useEffect(() => {
     return onEdge("action", () => {
@@ -129,7 +144,8 @@ function Gate({
   }, [cx, cz]);
 
   useFrame((state, dt) => {
-    const target = open ? 1 : 0;
+    // Broken gates swing fully open and stay that way.
+    const target = broken || open ? 1 : 0;
     openProgress.current += (target - openProgress.current) * Math.min(1, dt * 4);
     const swing = openProgress.current * (Math.PI / 2);
     // Compose base rotation with door swing about Y.
@@ -213,6 +229,10 @@ function Gate({
           <meshBasicMaterial color={"#ffd27a"} transparent opacity={0.9} toneMapped={false} depthWrite={false} />
         </mesh>
         <pointLight color={"#ffd27a"} intensity={3} distance={5} position={[0, 1, 0]} />
+      </group>
+      {/* Gate health bar — billboarded above the arch. */}
+      <group position={[cx, y + 3.4, cz]}>
+        <WorldHealthBar id={hpId} yOffset={0} width={2.4} color={broken ? "#ff5555" : "#c89c5a"} label="Gate" />
       </group>
     </group>
   );
@@ -477,7 +497,7 @@ export function Village({ data }: { data: TerrainData }) {
         <FenceRail key={i} position={r.pos} rotation={r.rot} length={r.length} y={r.y} />
       ))}
       {VILLAGE_GATE_ANGLES.map((angle, i) => (
-        <Gate key={i} data={data} radius={fence.radius} angle={angle} />
+        <Gate key={i} data={data} radius={fence.radius} angle={angle} index={i} />
       ))}
       {towers.map((t, i) => (
         <WatchTower key={i} position={t.pos} rotation={t.rot} />

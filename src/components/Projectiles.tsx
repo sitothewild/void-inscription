@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Clone, useGLTF } from "@react-three/drei";
 import { Group } from "three";
+import { hitTargets } from "@/game/hitTargets";
+import { health } from "@/game/health";
 
 type Arrow = {
   id: number;
@@ -54,6 +56,23 @@ function ArrowMesh({ arrow }: { arrow: Arrow }) {
     g.position.y += arrow.dir[1] * step;
     g.position.z += arrow.dir[2] * step;
     travelled.current += step;
+    // Hit detection against registered damageable targets.
+    const px = g.position.x;
+    const py = g.position.y;
+    const pz = g.position.z;
+    for (const t of hitTargets.list()) {
+      const dx = px - t.x;
+      const dy = py - t.y;
+      const dz = pz - t.z;
+      if (dx * dx + dy * dy + dz * dz < t.radius * t.radius) {
+        // Power 0..1 scales to 6..30 damage.
+        const dmg = 6 + arrow.power * 24;
+        health.damage(t.id, dmg);
+        arrow.life = 0;
+        arrow.speed = 0;
+        return;
+      }
+    }
     if (travelled.current >= arrow.maxDistance) {
       // Sink it harmlessly — Projectiles' lifetime sweep will GC it next.
       arrow.life = 0;
